@@ -1,0 +1,7 @@
+
+# Temporary R files
+.Rhistory
+run.r.Rout
+
+# Bat files
+*.bat
