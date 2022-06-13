@@ -791,12 +791,17 @@ show_mm_plots_layout <- function(velocity_data,
 # data : data.frame containing Km and Vmax data to be shown.
 # return : ggplot object.
 
-show_km_vmax <- function(data) {
-    ggplot(data, aes(Km, Vmax)) +
-        geom_point(size = 3, aes(color = sample)) +
+show_km_vmax <- function(data, show_error_bars = TRUE) {
+    plot <- ggplot(data, aes(Km, Vmax, color = sample)) +
+        geom_point(size = 3) +
         scale_color_discrete(name = 'Sample') +
         plot_theme +
-        labs(x = 'Km', y = 'Vmax')
+        labs(x = expression('Substrate concentration, '*mu*'M'),
+             y = expression('Vmax, '*mu*'M/min'))
+    if (show_error_bars) plot <- plot +
+            geom_errorbarh(aes(xmin = Km_lower, xmax = Km_upper)) +
+            geom_errorbar(aes(ymin = Vmax_lower, ymax = Vmax_upper)) 
+    plot
 }
 
 

@@ -87,10 +87,9 @@ save_report <- function(path,
         
         stdpar_plot_line <- fpar(ftext('Parameters of calibration curves', section_text_style), fp_p = section_par_style)
         
-        stdpar_plot <- ggdraw() +
-            draw_plot(slope_plot+report_fig_theme, x = 0,    y = 0, width = 0.33, height = 1) +
-            draw_plot(int_plot+report_fig_theme,  x =  0.34, y = 0, width = 0.33, height = 1) +
-            draw_plot(rsq_plot+report_fig_theme,  x =  0.67, y = 0, width = 0.33, height = 1) 
+        stdpar_plot <- plot_grid(slope_plot+report_fig_theme,
+                                 int_plot+report_fig_theme,
+                                 rsq_plot+report_fig_theme, nrow = 1)
         
         report <- report %>%
             body_add_fpar(stdpar_plot_line) %>%

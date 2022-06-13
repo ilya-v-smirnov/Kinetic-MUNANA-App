@@ -11,11 +11,38 @@ source('./utilities.R')
 
 ######## SUPPLEMENTARY FUNCTIONS ########
 
+init_result_table <- function(samples) {
+    len <- length(samples)
+    data.frame(sample = samples,
+               Vmax = numeric(len),
+               Vmax_lower = numeric(len),
+               Vmax_upper = numeric(len),
+               Km = numeric(len),
+               Km_lower = numeric(len),
+               Km_upper = numeric(len))
+}
 
-edit_result_table <- function(df, name, Vmax, Km) {
+
+edit_result_table <- function(df, name,
+                              Vmax, Vmax_lower, Vmax_upper,
+                              Km, Km_lower, Km_upper) {
     df$Vmax[df$sample == name] <- Vmax
+    df$Vmax_lower[df$sample == name] <- Vmax_lower
+    df$Vmax_upper[df$sample == name] <- Vmax_upper
     df$Km[df$sample == name] <- Km
+    df$Km_lower[df$sample == name] <- Km_lower
+    df$Km_upper[df$sample == name] <- Km_upper
     df
+}
+
+
+get_coef_ci <- function(model, par) {
+    coefs <- coef(model)
+    ci <- confint(model)
+    switch(par,
+           'Vmax' = signif(c(coefs[1], ci[1,1], ci[1,2]), 3),
+           'Km' = signif(c(coefs[2], ci[2,1], ci[2,2]), 3),
+           NULL)
 }
 
 
@@ -234,7 +261,8 @@ ui <- fluidPage(title = 'Kinetic MUNANA App',
                                                                          {font-size: 20px;
                                                                           font-family: "Courier New";
                                                                           color: red}'))
-                                               )
+                                               ),
+                                               h4('95% confidence intervals are showon in parentheses')
                                         )
                                     )
                                 ),
@@ -270,7 +298,8 @@ ui <- fluidPage(title = 'Kinetic MUNANA App',
                                 ),
                                 wellPanel(
                                     h3('Km vs Vmax Plot'), br(),
-                                    plotOutput('km_vmax_plot', width = "600px", height = "550px")
+                                    plotOutput('km_vmax_plot', width = "850px", height = "750px"),
+                                    checkboxInput('show_error_bars', 'Show 95% confidence intervals (error bars)', value = TRUE)
                                 )
                             )
                         )
@@ -373,7 +402,7 @@ ui <- fluidPage(title = 'Kinetic MUNANA App',
                             mainPanel(br(), br(), br(),
                                       h4("This application was designed by Ilya Smirnov, a postdoc in Davide Angeletti's group."),
                                       h4('Please, report problems or suggestions for improvement by email:'),
-                                      h4(a('ilya.smirnov@gu.se', href='mailto:ilya.smirnov@gu.se'),
+                                      h4(a('davide.angeletti@gu.se', href='mailto:davide.angeletti@gu.se'),
                                          ' or ',
                                          a('smirnov.iv.mail@gmail.com', href = 'mailto:smirnov.iv.mail@gmial.com'))
                                       )
@@ -626,22 +655,25 @@ server <- function(input, output, session) {
     })
     
     Vmax <- reactive({
-        if (is.null(current_nls_model())) return(0)
-        signif(coef(current_nls_model())[1], 3)
+        if (is.null(current_nls_model())) return(c(0, 0, 0))
+        get_coef_ci(current_nls_model(), 'Vmax')
     })
     
     output$Vmax_out <- renderText({
-        paste('Vmax =', Vmax())
+        val <- Vmax()
+        if (all(val == 0)) return('')
+        paste0('Vmax = ', val[1], ' (', val[2], '-', val[3], ')')
     })
     
     Km <- reactive({
-        if (is.null(current_nls_model())) return(0)
-        signif(coef(current_nls_model())[2], 3) 
+        if (is.null(current_nls_model())) return(c(0, 0, 0))
+        get_coef_ci(current_nls_model(), 'Km')
     })
     
     output$Km_out <- renderText({
-        if (is.na(Km())) return('')
-        paste('Km =', Km())
+        val <- Km()
+        if (all(val == 0)) return('')
+        paste0('Km = ', val[1], ' (', val[2], '-', val[3], ')')
     })
     
     
@@ -649,19 +681,21 @@ server <- function(input, output, session) {
         if (dim(result_table_df)[1] == 0) {
             s_list <- sample_list()
             len <- length(s_list)
-            result_table_df <<- data.frame(sample = s_list,
-                                           Vmax = numeric(len),
-                                           Km = numeric(len))
+            result_table_df <<- init_result_table(s_list)
             for (smpl in s_list) {
                 v_data <- subset(velo_table(), name == smpl)
                 nls <- get_nls(v_data, vmax = NULL, km = NULL)
                 nls_models_list[[smpl]] <<- nls
-                Vmax <- signif(coef(nls)[1], 3)
-                Km <- signif(coef(nls)[2], 3)
+                Vmax <- get_coef_ci(nls, 'Vmax')
+                Km <- get_coef_ci(nls, 'Km')
                 result_table_df <<- edit_result_table(result_table_df,
                                                       name = smpl,
-                                                      Vmax = Vmax,
-                                                      Km = Km)
+                                                      Vmax = Vmax[1],
+                                                      Vmax_lower = Vmax[2],
+                                                      Vmax_upper = Vmax[3],
+                                                      Km = Km[1],
+                                                      Km_lower = Km[2],
+                                                      Km_upper = Km[3])
             }
         } else {
             smpl <- input$sample_list_select
@@ -713,11 +747,11 @@ server <- function(input, output, session) {
     })
     
     output$result_table_selected <- renderTable({
-        sub_result_table()
+        subset(sub_result_table(), select = c(sample, Vmax, Km))
     })
     
     km_vmax_plot <- reactive({
-        show_km_vmax(sub_result_table())
+        show_km_vmax(sub_result_table(), input$show_error_bars)
     })
     
     output$km_vmax_plot <- renderPlot({
