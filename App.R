@@ -262,7 +262,7 @@ ui <- fluidPage(title = 'Kinetic MUNANA App',
                                                                           font-family: "Courier New";
                                                                           color: red}'))
                                                ),
-                                               h4('95% confidence intervals are showon in parentheses')
+                                               h4('95% confidence intervals are shown in parentheses')
                                         )
                                     )
                                 ),
@@ -629,12 +629,14 @@ server <- function(input, output, session) {
     })
     
     current_nls_model <- reactive({
+        vmax = guess_vmax(current_velo_table())
+        km = guess_km(current_velo_table())
         if (input$manual_vmax_km) {
             vmax = input$Vmax
-            km = input$km
+            km = input$Km
         } else {
-            vmax = NULL
-            km = NULL
+            updateNumericInput(session, 'Vmax', value = vmax)
+            updateNumericInput(session, 'Km', value = km)
         }
         nls_model <- get_nls(current_velo_table(), vmax = vmax, km = km)
         if (!is.null(input$sample_list_select)) {
@@ -678,13 +680,16 @@ server <- function(input, output, session) {
     
     
     result_table <- reactive({
+        # auto calculation of result table
         if (dim(result_table_df)[1] == 0) {
             s_list <- sample_list()
             len <- length(s_list)
             result_table_df <<- init_result_table(s_list)
             for (smpl in s_list) {
                 v_data <- subset(velo_table(), name == smpl)
-                nls <- get_nls(v_data, vmax = NULL, km = NULL)
+                nls <- get_nls(v_data,
+                               vmax = guess_vmax(v_data),
+                               km = guess_km(v_data))
                 nls_models_list[[smpl]] <<- nls
                 Vmax <- get_coef_ci(nls, 'Vmax')
                 Km <- get_coef_ci(nls, 'Km')
@@ -697,6 +702,7 @@ server <- function(input, output, session) {
                                                       Km_lower = Km[2],
                                                       Km_upper = Km[3])
             }
+        # manual correction of results
         } else {
             smpl <- input$sample_list_select
             result_table_df <<- edit_result_table(result_table_df,

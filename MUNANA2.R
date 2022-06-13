@@ -508,9 +508,8 @@ model_progress_curves <- function(assay) {
 # velocity_data : data.frame containing coefficients from quadratic regression model;
 # vmax : initial guess of vmax, if NULL returns the highest velocity as the initial guess.
 
-guess_vmax <- function(velocity_data, vmax = NULL) {
-    if (!is.null(vmax)) return(vmax)
-    max(velocity_data$b, na.rm = TRUE)
+guess_vmax <- function(velocity_data) {
+    signif(max(velocity_data$b, na.rm = TRUE), 2)
 }
 
 
@@ -518,10 +517,9 @@ guess_vmax <- function(velocity_data, vmax = NULL) {
 # velocity_data : data.frame containing coefficients from quadratic regression model;
 # km : initial guess of Km, if NULL returns the geometrical mean of substrate range.
 
-guess_km <- function(velocity_data, km = NULL) {
-    if (!is.null(km)) return(km)
+guess_km <- function(velocity_data) {
     min_max <- range(velocity_data$substrate_conc)
-    geo_mean(min_max)
+    round(geo_mean(min_max))
 }
 
 
@@ -532,10 +530,8 @@ guess_km <- function(velocity_data, km = NULL) {
 # km : numeric, approximate Km value.
 # return : nls models or NULL if velocity_data has less then 3 rows.
 
-get_nls <- function(velocity_data, vmax = NULL, km = NULL) {
+get_nls <- function(velocity_data, vmax, km) {
     if (dim(velocity_data)[1] < 3) return(NULL)
-    vmax = guess_vmax(velocity_data, vmax)
-    km = guess_km(velocity_data, km)
     nls(b ~ Vmax * substrate_conc / (Km + substrate_conc),
         start = c(Vmax = vmax, Km = km),
         data = velocity_data, trace = F)
