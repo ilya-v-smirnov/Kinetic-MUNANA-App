@@ -538,6 +538,89 @@ get_nls <- function(velocity_data, vmax, km) {
 }
 
 
+# Calculates statistical significance of changes in Vmax and Km based on Michaelis-Menten curves.
+# velo_data : data.frame containing velocity data;
+# vmax_km_data : data.frame containing estimates of Vmax and Km values;
+# ref_sample : character, name of the reference sample;
+# p.adjust_method : character, method of adjusting p-values for multiple comparisons. If 'no', no
+#       correction is implemented.
+# return : list of two data.frames containing statstical comparisons of Vmax and Km values.
+compare_vmax_km <- function(velo_data, vmax_km_data,
+                            ref_sample, p.adjust_method = 'bonferroni') {
+    
+    nls_formula <- function(ref_sample) {
+        as.formula(
+            paste0("b ~ (Vmax0 + Vmax1 * (name != '",
+                   ref_sample,
+                   "')) * substrate_conc / ((Km0 + Km1 * (name != '",
+                   ref_sample,
+                   "')) + substrate_conc)"))
+    }
+    
+    get_comp_nls <- function(velo_data, ref_sample, Vmax0, Vmax1, Km0, Km1) {
+        nls(nls_formula(ref_sample),
+            data = velo_data,
+            start = c(Vmax0 = Vmax0, Vmax1 = Vmax1, Km0 = Km0, Km1 = Km1))
+    }
+    
+    
+    signif_stars <- function(pval) {
+        sapply(pval, function(x) {
+            if (is.na(x)) return('')
+            if (x >= 0.1) return('')
+            if (x >= 0.05) return('.')
+            if (x >= 0.01) return('*')
+            if (x >= 0.001) return('**')
+            return('***')
+        })
+    }
+    
+    Vmax_table <- data.frame()
+    Km_table <- data.frame()
+    samples <- unique(vmax_km_data$name)
+    Vmax0 <- vmax_km_data$Vmax[vmax_km_data$name == ref_sample][1]
+    Km0 <- vmax_km_data$Km[vmax_km_data$name == ref_sample][1]
+    for (smpl in samples) {
+        if (smpl == ref_sample) next
+        sub_data <- subset(velo_data, name %in% c(ref_sample, smpl))
+        Vmax1 <- vmax_km_data$Vmax[vmax_km_data$name == smpl][1]
+        Km1 <- vmax_km_data$Km[vmax_km_data$name == smpl][1]
+        model <- get_comp_nls(sub_data, ref_sample = ref_sample,
+                              Vmax0 = Vmax0, Vmax1 = Vmax1,
+                              Km0 = Km0, Km1 = Km1)
+        mod_summary <- summary(model)
+        summary_table <- as.data.frame(mod_summary$parameters, row.names = NULL)
+        Vmax_line <- summary_table[2,]
+        Vmax_line$name <- smpl
+        Vmax_table <- rbind(Vmax_table, Vmax_line)
+        Km_line <- summary_table[4,]
+        Km_line$name <- smpl
+        Km_table <- rbind(Km_table, Km_line)
+    }
+    Vmax_table <- Vmax_table[,  c(5, 1, 4)]
+    Km_table <- Km_table[,  c(5, 1, 4)]
+    names(Vmax_table) <- c('name', 'change', 'p.value')
+    names(Km_table) <- c('name', 'change', 'p.value')
+    Vmax_table <- merge(vmax_km_data[, c('name', 'Vmax')],
+                        Vmax_table, all = TRUE)
+    Km_table <- merge(vmax_km_data[, c('name', 'Vmax')],
+                      Vmax_table, all = TRUE)
+    if (p.adjust_method != 'no') {
+        Vmax_table$p.adjust <- p.adjust(Vmax_table$p.value, method = p.adjust_method)
+        Km_table$p.adjust <- p.adjust(Km_table$p.value, method = p.adjust_method)
+        Vmax_table$stars <- signif_stars(Vmax_table$p.adjust)
+        Km_table$stars <- signif_stars(Km_table$p.adjust)
+        Vmax_table[, 2:5] <- signif(Vmax_table[, 2:5], 3)
+        Km_table[, 2:5] <- signif(Km_table[, 2:5], 3)
+    } else {
+        Vmax_table$stars <- signif_stars(Vmax_table$p.value)
+        Km_table$stars <- signif_stars(Km_table$p.value)
+        Vmax_table[, 2:4] <- signif(Vmax_table[, 2:4], 3)
+        Km_table[, 2:4] <- signif(Km_table[, 2:4], 3)
+    }
+    return(list(Vmax = Vmax_table,
+                Km = Km_table))
+}
 
 
 ######## DATA VISUALISATION ########
@@ -803,11 +886,11 @@ show_km_vmax <- function(data, show_error_bars = TRUE) {
 
 ##################
 
-# setwd('D:/Google Drive/Gotheburg University/Diary/!Projects/14. MUNANA app/')
+# setwd('D:/R projects/Kinetic-MUNANA-App/Sample Data Sets/PR8 virus + MAbs/')
 # 
-# std_data <- read_standard_table('./2021-06-20_standard_table.xlsx')
-# smpl_data <- read_sample_table('./2021-06-20_sample_table.xlsx')
-# rfu_data <- read_RFU_data_table('./2021-06-20 MUNANA.xlsx')
+# std_data <- read_standard_table('./standard_table.xlsx')
+# smpl_data <- read_sample_table('./sample_table.xlsx')
+# rfu_data <- read_RFU_data_table('./RFU Data.xlsx')
 # 
 # 
 # test <- assay(standard_data = std_data,
@@ -815,6 +898,69 @@ show_km_vmax <- function(data, show_error_bars = TRUE) {
 #               RFU_data = rfu_data,
 #               calibration_method = 'log-linear',
 #               bright = 217)
+# 
+# 
+# velo_data_table <- model_progress_curves(test)
+# 
+# 
+# vmax_km_df <- data.frame()
+# 
+# for (smpl in unique(velo_data_table$name)) {
+#     vd <- subset(velo_data_table, name == smpl)
+#     m <- get_nls(vd,
+#                  vmax = guess_vmax(vd),
+#                  km = guess_km(vd))
+#     vmax <- coef(m)[1]
+#     km <- coef(m)[2]
+#     vmax_km_df <- rbind(vmax_km_df,
+#                         data.frame(name = smpl,
+#                                    Vmax = vmax,
+#                                    Km = km))
+# }
+# 
+# vmax_km_df
+# 
+# 
+# 
+# 
+# 
+# # b ~ Vmax * substrate_conc / (Km + substrate_conc)
+# 
+# model <-
+# nls(b ~ (Vmax0 + Vmax1 * (name != 'PR8+Bmem433_1')) * substrate_conc / ((Km0 + Km1 * (name != 'PR8+Bmem433_1')) + substrate_conc),
+#     data = subset(velo_data_table, name %in% c('PR8+Bmem433_1', 'PR8+NPR-10')),
+#     start = c(Vmax0 = 0.3, Vmax1 = 0.4, Km0 = 80, Km1 = 80))
+# 
+# summary(model)
+# 
+# velo_data_table$name <- factor(velo_data_table$name)
+# 
+# 
+# 
+# summary(model)
+# 
+# 
+# 
+# 
+# 
+# 
+# 
+# result <- compare_vmax_km(velo_data = velo_data_table, vmax_km_df, ref_sample = 'PR8+Bmem433_1')
+# result
+# 
+# signif(result[[1]][,2:4], 3)
+# 
+# 
+# nls_formula('PR8')
+# s <- summary(get_comp_nls(subset(velo_data_table, name %in% c('PR8+Bmem433_1', 'PR8+NPR-10')),
+#              ref_sample = 'PR8+Bmem433_1',
+#              Vmax0 = 0.3, Vmax1 = 0.4, Km0 = 80, Km1 = 80))
+# 
+# s$parameters
+# 
+# 
+# 
+# 
 # 
 # 
 # show_standard_data(test, mode = 'individual')
@@ -834,7 +980,7 @@ show_km_vmax <- function(data, show_error_bars = TRUE) {
 # plots[[1]]
 # plots[[2]]
 # 
-# velo_data_table <- model_progress_curves(test)
+
 # 
 # show_progress_curves(test, mode = 'all', show_velocities = T, curve_models = models)
 # progress_curves <- show_progress_curves(test, mode = 'by sample', show_velocities = T, curve_models = models)
@@ -847,3 +993,6 @@ show_km_vmax <- function(data, show_error_bars = TRUE) {
 # 
 # show_mm_plot(models[models$name == 'PR8 virus',])
 # show_mm_plot(models[models$name == 'PR8 virus',], nls_model)
+
+
+
