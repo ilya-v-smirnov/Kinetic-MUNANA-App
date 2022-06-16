@@ -13,7 +13,7 @@ source('./utilities.R')
 
 init_result_table <- function(samples) {
     len <- length(samples)
-    data.frame(sample = samples,
+    data.frame(name = samples,
                Vmax = numeric(len),
                Vmax_lower = numeric(len),
                Vmax_upper = numeric(len),
@@ -26,12 +26,12 @@ init_result_table <- function(samples) {
 edit_result_table <- function(df, name,
                               Vmax, Vmax_lower, Vmax_upper,
                               Km, Km_lower, Km_upper) {
-    df$Vmax[df$sample == name] <- Vmax
-    df$Vmax_lower[df$sample == name] <- Vmax_lower
-    df$Vmax_upper[df$sample == name] <- Vmax_upper
-    df$Km[df$sample == name] <- Km
-    df$Km_lower[df$sample == name] <- Km_lower
-    df$Km_upper[df$sample == name] <- Km_upper
+    df$Vmax[df$name == name] <- Vmax
+    df$Vmax_lower[df$name == name] <- Vmax_lower
+    df$Vmax_upper[df$name == name] <- Vmax_upper
+    df$Km[df$name == name] <- Km
+    df$Km_lower[df$name == name] <- Km_lower
+    df$Km_upper[df$name == name] <- Km_upper
     df
 }
 
@@ -304,6 +304,36 @@ ui <- fluidPage(title = 'Kinetic MUNANA App',
                             )
                         )
                ),
+               
+               tabPanel('Statistics',
+                        
+                        sidebarLayout(
+                            sidebarPanel(
+                                h4('Reference sample'),
+                                uiOutput('ref_sample_select'),
+                                h4('Adjust P-values for Multiple Comparisons'),
+                                selectInput('p_adjust', label = 'Method',
+                                            choices = c('No' = 'no',
+                                                        'Holm' = 'holm',
+                                                        'Hochberg' = 'hochberg',
+                                                        'Hommel' = 'hommel',
+                                                        'Bonferroni' = 'bonferroni',
+                                                        'Benjamini & Hochberg' = "BH",
+                                                        'Benjamini & Yekutieli' = "BY"),
+                                            selected = 'bonferroni'),
+                            width = 2),
+                            mainPanel(
+                                wellPanel(
+                                    h3('Vmax'),
+                                    tableOutput('vmax_stat')
+                                ),
+                                wellPanel(
+                                    h3('Km'),
+                                    tableOutput('km_stat')
+                                )
+                            )
+                        )
+                ),
                
                tabPanel('Report',
                         
@@ -713,7 +743,7 @@ server <- function(input, output, session) {
 
     output$result_table <- renderTable({
         result_table()
-    })
+    }, digits = 3)
     
     output$save_mm_table <- downloadHandler(
         filename = function() {
@@ -747,13 +777,13 @@ server <- function(input, output, session) {
         if (is.null(input$samples_check)) {
             sub_df <- subset(result_table_df, Km != 0)
         } else {
-            sub_df <- subset(result_table_df, sample %in% input$samples_check)
+            sub_df <- subset(result_table_df, name %in% input$samples_check)
         }
         sub_df
     })
     
     output$result_table_selected <- renderTable({
-        subset(sub_result_table(), select = c(sample, Vmax, Km))
+        subset(sub_result_table(), select = c(name, Vmax, Km))
     })
     
     km_vmax_plot <- reactive({
@@ -763,6 +793,40 @@ server <- function(input, output, session) {
     output$km_vmax_plot <- renderPlot({
         km_vmax_plot()
     })
+    
+    
+    ###### STATSTICS TAB ######
+    
+      ### SIDE PANEL ###
+    
+    output$ref_sample_select <- renderUI({
+        sl <- sample_list()
+        selectInput('ref_sample', 'Sample',
+                    choices = sl, selected = sl[1])
+    })
+    
+      ### MAIN PANEL ###
+    
+    get_stat <- reactive({
+      vd <- velo_table()
+      rt <- result_table()
+      if (dim(vd)[1] > 0 & dim(rt)[2] & !is.null(input$ref_sample)) {
+          stat <- compare_vmax_km(velo_data = velo_table(),
+                                  vmax_km_data = result_table(),
+                                  ref_sample = input$ref_sample,
+                                  p.adjust_method = input$p_adjust)
+      } else return(NULL)
+      stat
+    })
+    
+    output$vmax_stat <- renderTable({
+        get_stat()[[1]]
+    }, digits = 4)
+    
+    output$km_stat <- renderTable({
+        get_stat()[[2]]
+    }, digits = 4)
+    
     
     
     ###### REPORT TAB ######

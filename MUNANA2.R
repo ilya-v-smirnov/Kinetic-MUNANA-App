@@ -575,9 +575,10 @@ compare_vmax_km <- function(velo_data, vmax_km_data,
         })
     }
     
+    samples <- unique(vmax_km_data$name)
+    vmax_km_data <- subset(vmax_km_data, select = c('name', 'Vmax', 'Km'))
     Vmax_table <- data.frame()
     Km_table <- data.frame()
-    samples <- unique(vmax_km_data$name)
     Vmax0 <- vmax_km_data$Vmax[vmax_km_data$name == ref_sample][1]
     Km0 <- vmax_km_data$Km[vmax_km_data$name == ref_sample][1]
     for (smpl in samples) {
@@ -871,7 +872,7 @@ show_mm_plots_layout <- function(velocity_data,
 # return : ggplot object.
 
 show_km_vmax <- function(data, show_error_bars = TRUE) {
-    plot <- ggplot(data, aes(Km, Vmax, color = sample)) +
+    plot <- ggplot(data, aes(Km, Vmax, color = name)) +
         geom_point(size = 3) +
         scale_color_discrete(name = 'Sample') +
         plot_theme +
