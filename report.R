@@ -38,6 +38,8 @@ save_report <- function(path,
                         mm_plots,
                         result_table,
                         km_vmax_plot,
+                        vmax_stat_table,
+                        km_stat_table,
                         items_to_include = NULL) {
     
     # Date, title and files
@@ -147,6 +149,20 @@ save_report <- function(path,
         report <- report %>%
             body_add('') %>%
             body_add_gg(km_vmax_plot+report_fig_theme, width = 6, height = 4.5)
+    }
+    
+    # Statistics
+    
+    if (! is.null(items_to_include) & 'stat' %in% items_to_include) {
+        
+        vmax_line <- fpar(ftext('Statistics: Vmax', section_text_style), fp_p = section_par_style)
+        km_line <- fpar(ftext('Statistics: Km', section_text_style), fp_p = section_par_style)
+        
+        report <- report %>%
+            body_add_fpar(vmax_line) %>%
+            body_add_table(vmax_stat_table, style = 'table_template') %>%
+            body_add_fpar(km_line) %>%
+            body_add_table(km_stat_table, style = 'table_template')
     }
     
     print(report, target = path)

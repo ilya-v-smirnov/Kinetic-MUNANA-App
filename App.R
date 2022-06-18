@@ -311,7 +311,7 @@ ui <- fluidPage(title = 'Kinetic MUNANA App',
                             sidebarPanel(
                                 h4('Reference sample'),
                                 uiOutput('ref_sample_select'),
-                                h4('Adjust P-values for Multiple Comparisons'),
+                                h4('Adjust p-values for multiple comparisons'),
                                 selectInput('p_adjust', label = 'Method',
                                             choices = c('No' = 'no',
                                                         'Holm' = 'holm',
@@ -324,12 +324,23 @@ ui <- fluidPage(title = 'Kinetic MUNANA App',
                             width = 2),
                             mainPanel(
                                 wellPanel(
-                                    h3('Vmax'),
-                                    tableOutput('vmax_stat')
+                                    fluidRow(column(7,
+                                                    h3('Vmax'),
+                                                    tableOutput('vmax_stat')),
+                                             column(4,
+                                                    br(), br(),
+                                                    downloadButton('save_vmax_data', 'Save Data')
+                                             ))
                                 ),
                                 wellPanel(
-                                    h3('Km'),
-                                    tableOutput('km_stat')
+                                    fluidRow(column(7,
+                                                    h3('Km'),
+                                                    tableOutput('km_stat')),
+                                            column(4,
+                                                   br(), br(),
+                                                    downloadButton('save_km_data', 'Save Data')
+                                                    ))
+                                    
                                 )
                             )
                         )
@@ -347,13 +358,15 @@ ui <- fluidPage(title = 'Kinetic MUNANA App',
                                                                'Progress Curves' = 'progress_curves',
                                                                'Velocity Data' = 'velo_data',
                                                                'Michaelis-Menten Plots' = 'mm_plots',
-                                                               'Km vs Vmax plot' = 'km_vmax_plot'),
+                                                               'Km vs Vmax plot' = 'km_vmax_plot',
+                                                               'Statistics' = 'stat'),
                                                    selected = c('std_plot',
                                                                 'std_pars',
                                                                 'progress_curves',
                                                                 'velo_data',
                                                                 'mm_plots',
-                                                                'km_vmax_plot')),
+                                                                'km_vmax_plot',
+                                                                'stat')),
                                 width = 2),
                             mainPanel(
                                 h3('Report'),
@@ -443,6 +456,19 @@ ui <- fluidPage(title = 'Kinetic MUNANA App',
 
 
 server <- function(input, output, session) {
+    
+    ###### GLOBAL OBJECTS ######
+    
+    # lists:
+    nls_models_list <- list()
+    mm_plots <- list()
+    progress_curves <- list()
+    sample_list <- list()
+    
+    # data.frames:
+    velo_data_df <- data.frame()
+    result_table_df <- data.frame()
+    
     
     ###### LOADING FILES TAB ######
     
@@ -537,7 +563,8 @@ server <- function(input, output, session) {
     })
     
     velo_table <- eventReactive(input$calculate, {
-        model_progress_curves(assay_obj())
+        velo_data_df <<- model_progress_curves(assay_obj())
+        velo_data_df
     })
     
     
@@ -586,25 +613,25 @@ server <- function(input, output, session) {
     
     # https://gist.github.com/wch/5436415/
     progress_curves_plots <- reactive({
-        plots <- show_progress_curves(assay_obj(), mode = input$prog_curve_mode,
-                                      show_velocities = input$add_velo,
-                                      curve_models = velo_table())
-        for (nm in names(plots)) {
+        progress_curves <<- show_progress_curves(assay_obj(),
+                                                 mode = input$prog_curve_mode,
+                                                 show_velocities = input$add_velo,
+                                                 curve_models = velo_table())
+        for (nm in names(progress_curves)) {
             local({
                 loc_nm <- nm
                 output[[loc_nm]] <- renderPlot({
-                    plots[[loc_nm]]
+                    progress_curves[[loc_nm]]
                 })
                 
             })
         }
-        plots
+        progress_curves
     })
     
     output$plot_progress_curves <- renderUI({
-        plots <- progress_curves_plots()
         plot_list <- list()
-        for (nm in names(plots)) {
+        for (nm in names(progress_curves_plots())) {
             plot_list[[nm]] <- plotOutput(nm, width = "700px", height = "550px")
         }
         do.call(tagList, plot_list)
@@ -617,6 +644,7 @@ server <- function(input, output, session) {
     
     sample_list <- reactive({
         unique(velo_table()$name)
+        #sample_list
     })
     
     output$sample_list <- renderUI({
@@ -626,9 +654,6 @@ server <- function(input, output, session) {
     })
     
       ### MAIN PANEL ###
-    
-    nls_models_list <- list()
-    result_table_df <- data.frame()
     
     current_velo_table <- reactive({
         subset(velo_table(), name == input$sample_list_select)
@@ -761,19 +786,20 @@ server <- function(input, output, session) {
       ### SIDE PANEL ###
     
     output$sample_check_list <- renderUI({
-        checkboxGroupInput('samples_check', label = 'Add to plot only:', choices = sample_list(), selected = sample_list())
+        checkboxGroupInput('samples_check', label = 'Add to plot only:', choices = sample_list, selected = sample_list)
     })
     
       ### MAIN PANEL ###
     
     output$mm_plots_layout <- renderPlot({
-        current_nls_model()
+        print('Start')
+        #current_nls_model()
         mm_plots <<- show_mm_plots_layout(velo_table(), nls_models_list, input$samples_check)
         mm_plots
     })
     
     sub_result_table <- reactive({
-        current_nls_model()
+        # current_nls_model()
         if (is.null(input$samples_check)) {
             sub_df <- subset(result_table_df, Km != 0)
         } else {
@@ -823,10 +849,29 @@ server <- function(input, output, session) {
         get_stat()[[1]]
     }, digits = 4)
     
+    output$save_vmax_data <- downloadHandler(
+        filename = function() {
+            paste0(Sys.Date(), "_vmax stat.xlsx")
+        },
+        content = function(file) {
+            df <- get_stat()[[1]]
+            save_table(df, file, open_file = FALSE)
+        }
+    )
+    
     output$km_stat <- renderTable({
         get_stat()[[2]]
     }, digits = 4)
     
+    output$save_km_data <- downloadHandler(
+        filename = function() {
+            paste0(Sys.Date(), "_km stat.xlsx")
+        },
+        content = function(file) {
+            df <- get_stat()[[2]]
+            save_table(df, file, open_file = FALSE)
+        }
+    )
     
     
     ###### REPORT TAB ######
@@ -854,8 +899,10 @@ server <- function(input, output, session) {
                         progress_curves = progress_curves_plots(),
                         velo_data_table = velo_table(),
                         mm_plots = mm_plots,
-                        result_table = result_table(), ## ??? result_table_df
+                        result_table = result_table(),
                         km_vmax_plot = km_vmax_plot(),
+                        vmax_stat_table = get_stat()[[1]],
+                        km_stat_table = get_stat()[[2]],
                         items_to_include = input$report_comps)
         }
     )
