@@ -53,7 +53,7 @@ ui <- fluidPage(title = 'Kinetic MUNANA App',
     
     titlePanel(title = h1('Kinetic MUNANA App', align = 'center')),
     
-    navbarPage('Steps:',
+    navbarPage('Steps:', id = 'main_tabs',
                
                tabPanel('Loading files',
                         
@@ -340,7 +340,7 @@ ui <- fluidPage(title = 'Kinetic MUNANA App',
                                                    br(), br(),
                                                     downloadButton('save_km_data', 'Save Data')
                                                     ))
-                                    
+
                                 )
                             )
                         )
@@ -549,6 +549,7 @@ server <- function(input, output, session) {
     })
     
     assay_obj <- eventReactive(input$calculate, {
+        result_table_df <<- data.frame()
         assay(standard_data = standard_data(),
               sample_data = sample_data(),
               RFU_data = RFU_data(),
@@ -660,7 +661,39 @@ server <- function(input, output, session) {
       ### SIDE PANEL ###
     
     sample_list <- reactive({
-        unique(velo_table()$name)
+        sl <- unique(velo_table()$name)
+        if (length(sl) < 2) {
+            updateCheckboxGroupInput(session, 'report_comps',
+                                     choices = c('Standard plot' = 'std_plot',
+                                                 'Parameters of Calibration curves' = 'std_pars',
+                                                 'Progress Curves' = 'progress_curves',
+                                                 'Velocity Data' = 'velo_data',
+                                                 'Michaelis-Menten Plots' = 'mm_plots'),
+                                     selected = c('std_plot',
+                                                  'std_pars',
+                                                  'progress_curves',
+                                                  'velo_data',
+                                                  'mm_plots'))
+            hideTab('main_tabs', target = 'Statistics')
+        } else {
+            updateCheckboxGroupInput(session, 'report_comps',
+                                     choices = c('Standard plot' = 'std_plot',
+                                                 'Parameters of Calibration curves' = 'std_pars',
+                                                 'Progress Curves' = 'progress_curves',
+                                                 'Velocity Data' = 'velo_data',
+                                                 'Michaelis-Menten Plots' = 'mm_plots',
+                                                 'Km vs Vmax plot' = 'km_vmax_plot',
+                                                 'Statistics' = 'stat'),
+                                     selected = c('std_plot',
+                                                  'std_pars',
+                                                  'progress_curves',
+                                                  'velo_data',
+                                                  'mm_plots',
+                                                  'km_vmax_plot',
+                                                  'stat'))
+            showTab('main_tabs', target = 'Statistics')
+        }
+        sl
     })
     
     output$sample_list <- renderUI({
@@ -778,6 +811,7 @@ server <- function(input, output, session) {
             smpl <- input$sample_list_select
             result_table_df <<- edit_result_table(result_table_df,
                                                   name = smpl, Vmax = Vmax, Km = Km)
+            
         }
         result_table_df
     })
@@ -791,7 +825,7 @@ server <- function(input, output, session) {
             paste0(Sys.Date(), "_mm data.xlsx")
         },
         content = function(file) {
-            df <- result_table_df
+            df <- result_table()
             save_table(df, file, open_file = FALSE)
         }
     )
@@ -819,9 +853,9 @@ server <- function(input, output, session) {
     
     sub_result_table <- reactive({
         if (is.null(input$samples_check)) {
-            sub_df <- subset(result_table_df, Km != 0)
+            sub_df <- subset(result_table(), Km != 0)
         } else {
-            sub_df <- subset(result_table_df, name %in% input$samples_check)
+            sub_df <- subset(result_table(), name %in% input$samples_check)
         }
         sub_df
     })
