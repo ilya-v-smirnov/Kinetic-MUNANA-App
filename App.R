@@ -459,15 +459,11 @@ server <- function(input, output, session) {
     
     ###### GLOBAL OBJECTS ######
     
-    # lists:
-    nls_models_list <- list()
-    mm_plots <- list()
-    progress_curves <- list()
-    sample_list <- list()
-    
-    # data.frames:
-    velo_data_df <- data.frame()
+    std_fname <- character()
+    smpl_fname <- character()
+    rfu_fname <- character()
     result_table_df <- data.frame()
+    nls_models_list <- list()
     
     
     ###### LOADING FILES TAB ######
@@ -553,8 +549,6 @@ server <- function(input, output, session) {
     })
     
     assay_obj <- eventReactive(input$calculate, {
-        result_table_df <<- data.frame()
-        nls_models_list <<- list()
         assay(standard_data = standard_data(),
               sample_data = sample_data(),
               RFU_data = RFU_data(),
@@ -563,46 +557,69 @@ server <- function(input, output, session) {
     })
     
     velo_table <- eventReactive(input$calculate, {
-        velo_data_df <<- model_progress_curves(assay_obj())
-        velo_data_df
+        model_progress_curves(assay_obj())
     })
     
     
        ### MAIN PANEL ###
     
-    output$standard_plot <- renderPlot({
-        std_plot <<- show_standard_data(assay_obj(), input$standard_plot_mode)
-        std_plot
+    std_plot <- reactive({
+        show_standard_data(assay_obj(), input$standard_plot_mode)
     })
     
-    int_ylimits <- reactive({
-        if (!input$int_edit_check) return(c(NA, NA))
-        c(input$int_y_min, input$int_y_max)
+    output$standard_plot <- renderPlot({
+        std_plot()
+    })
+    
+    int_plot <- reactive({
+        if (!input$int_edit_check) {
+            plot <- show_calibration_pars(assay_obj(),
+                                          parameter = 'intercept',
+                                          y_limits = c(NA, NA))
+        } else {
+            plot <- show_calibration_pars(assay_obj(),
+                                          parameter = 'intercept',
+                                          y_limits = c(input$int_y_min, input$int_y_max))
+        }
+        plot
     })
     
     output$plot_intercept <- renderPlot({
-        int_plot <<- show_calibration_pars(assay_obj(), parameter = 'intercept', y_limits = int_ylimits())
-        int_plot
+        int_plot()
     })
     
-    slope_ylimits <- reactive({
-      if (!input$slope_edit_check) return(c(NA, NA))
-      c(input$slope_y_min, input$slope_y_max)
+    slope_plot <- reactive({
+        if (!input$slope_edit_check) {
+            plot <- show_calibration_pars(assay_obj(),
+                                          parameter = 'slope',
+                                          y_limits = c(NA, NA))
+        } else {
+            plot <- show_calibration_pars(assay_obj(),
+                                          parameter = 'slope',
+                                          y_limits = c(input$slope_y_min, input$slope_y_max))
+        }
+        plot
     })
     
     output$plot_slope <- renderPlot({
-        slope_plot <<- show_calibration_pars(assay_obj(), parameter = 'slope', y_limits = slope_ylimits())
-        slope_plot
+        slope_plot()
     })
     
-    rsq_ylimits <- reactive({
-      if (!input$rsq_edit_check) return(c(NA, NA))
-      c(input$rsq_y_min, input$rsq_y_max)
+    rsq_plot <- reactive({
+        if (!input$rsq_edit_check) {
+            plot <- show_calibration_pars(assay_obj(),
+                                          parameter = 'Rsq',
+                                          y_limits = c(NA, NA))
+        } else {
+            plot <- show_calibration_pars(assay_obj(),
+                                          parameter = 'Rsq',
+                                          y_limits = c(input$rsq_y_min, input$rsq_y_max))
+        }
+        plot
     })
     
     output$plot_Rsq <- renderPlot({
-        rsq_plot <<- show_calibration_pars(assay_obj(), parameter = 'Rsq', y_limits = rsq_ylimits())
-        rsq_plot
+        rsq_plot()
     })
     
     
@@ -613,10 +630,10 @@ server <- function(input, output, session) {
     
     # https://gist.github.com/wch/5436415/
     progress_curves_plots <- reactive({
-        progress_curves <<- show_progress_curves(assay_obj(),
-                                                 mode = input$prog_curve_mode,
-                                                 show_velocities = input$add_velo,
-                                                 curve_models = velo_table())
+        progress_curves <- show_progress_curves(assay_obj(),
+                                                mode = input$prog_curve_mode,
+                                                show_velocities = input$add_velo,
+                                                curve_models = velo_table())
         for (nm in names(progress_curves)) {
             local({
                 loc_nm <- nm
@@ -644,13 +661,12 @@ server <- function(input, output, session) {
     
     sample_list <- reactive({
         unique(velo_table()$name)
-        #sample_list
     })
     
     output$sample_list <- renderUI({
-        sl <- sample_list()
         selectInput('sample_list_select', 'Sample',
-                    choices = sl, selected = sl[1])
+                    choices = sample_list(),
+                    selected = sample_list()[1])
     })
     
       ### MAIN PANEL ###
@@ -786,20 +802,22 @@ server <- function(input, output, session) {
       ### SIDE PANEL ###
     
     output$sample_check_list <- renderUI({
-        checkboxGroupInput('samples_check', label = 'Add to plot only:', choices = sample_list, selected = sample_list)
+        sl <- sample_list()
+        checkboxGroupInput('samples_check', label = 'Add to plot only:',
+                           choices = sl, selected = sl)
     })
     
       ### MAIN PANEL ###
     
+    mm_plots_layout <- reactive({
+        show_mm_plots_layout(velo_table(), nls_models_list, input$samples_check)
+    })
+    
     output$mm_plots_layout <- renderPlot({
-        print('Start')
-        #current_nls_model()
-        mm_plots <<- show_mm_plots_layout(velo_table(), nls_models_list, input$samples_check)
-        mm_plots
+        mm_plots_layout()
     })
     
     sub_result_table <- reactive({
-        # current_nls_model()
         if (is.null(input$samples_check)) {
             sub_df <- subset(result_table_df, Km != 0)
         } else {
@@ -834,15 +852,15 @@ server <- function(input, output, session) {
       ### MAIN PANEL ###
     
     get_stat <- reactive({
-      vd <- velo_table()
-      rt <- result_table()
-      if (dim(vd)[1] > 0 & dim(rt)[2] & !is.null(input$ref_sample)) {
-          stat <- compare_vmax_km(velo_data = velo_table(),
-                                  vmax_km_data = result_table(),
-                                  ref_sample = input$ref_sample,
-                                  p.adjust_method = input$p_adjust)
-      } else return(NULL)
-      stat
+        vd <- velo_table()
+        rt <- result_table()
+        if (dim(vd)[1] > 0 & dim(rt)[2] & !is.null(input$ref_sample)) {
+            stat <- compare_vmax_km(velo_data = velo_table(),
+                                    vmax_km_data = result_table(),
+                                    ref_sample = input$ref_sample,
+                                    p.adjust_method = input$p_adjust)
+        } else return(NULL)
+        stat
     })
     
     output$vmax_stat <- renderTable({
@@ -892,13 +910,13 @@ server <- function(input, output, session) {
                         calib_method = input$calib_method,
                         bright_check = input$bright_check,
                         bright_diff = input$bright,
-                        standard_plot = std_plot,
-                        slope_plot = slope_plot,
-                        int_plot = int_plot,
-                        rsq_plot = rsq_plot,
+                        standard_plot = std_plot(),
+                        slope_plot = slope_plot(),
+                        int_plot = int_plot(),
+                        rsq_plot = rsq_plot(),
                         progress_curves = progress_curves_plots(),
                         velo_data_table = velo_table(),
-                        mm_plots = mm_plots,
+                        mm_plots = mm_plots_layout(),
                         result_table = result_table(),
                         km_vmax_plot = km_vmax_plot(),
                         vmax_stat_table = get_stat()[[1]],
