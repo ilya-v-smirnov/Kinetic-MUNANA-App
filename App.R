@@ -447,7 +447,9 @@ ui <- fluidPage(title = 'Kinetic MUNANA App',
                                       h4('Please, report problems or suggestions for improvement by email:'),
                                       h4(a('davide.angeletti@gu.se', href='mailto:davide.angeletti@gu.se'),
                                          ' or ',
-                                         a('smirnov.iv.mail@gmail.com', href = 'mailto:smirnov.iv.mail@gmial.com'))
+                                         a('smirnov.iv.mail@gmail.com', href = 'mailto:smirnov.iv.mail@gmial.com')),
+                                      br(), br(),
+                                      plotOutput('visits')
                                       )
                                       )
                         )
@@ -1020,6 +1022,45 @@ server <- function(input, output, session) {
         result <- spectrum_obj()
         result[[2]]
     })
+    
+    
+    ###### ABOUT TAB ######
+    
+    
+    output$visits <- {
+        renderPlot({
+            fname <- 'visit_stat.csv'
+            if (file.exists(fname)) {
+                visit_table <- read.csv(fname, sep = ';', dec = ',')
+            } else {
+                visit_table <- data.frame(
+                    date = character(),
+                    n = integer()
+                )
+            }
+            today <- as.character(Sys.Date())
+            n <- visit_table$n[visit_table$date == today]
+            if (length(n) == 0) {
+                visit_table <- rbind(
+                    visit_table,
+                    data.frame(date = today,
+                               n = 1)
+                )
+            } else {
+                visit_table$n[visit_table$date == today] <- n + 1
+            }
+            write.table(visit_table, fname, sep = ';', dec = ',', row.names = FALSE)
+            
+            n_visits <- sum(visit_table$n)
+            plot <- ggplot(visit_table, aes(as.Date(date), n)) +
+                geom_line(color = 'darkblue') +
+                plot_theme +
+                theme(plot.title = element_text(size = 18)) +
+                labs(x = 'Date', y = 'Number of visits') +
+                ggtitle(paste('Total number of visits:', n_visits), )
+            plot
+        })
+    }
 
 }
 
