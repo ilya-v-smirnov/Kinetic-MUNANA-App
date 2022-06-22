@@ -150,7 +150,7 @@ read_standard_table <- function(path) {
     well_names_ref <- generate_well_names()
     # Loading table
     df <- read_table(path)
-    # Cheking column names
+    # Checking column names
     col_names <- names(df)
     for (cnr in col_names_ref) {
         if (! cnr %in% col_names_ref) stop(paste('Column', cnr, 'missing!'))
@@ -504,22 +504,18 @@ model_progress_curves <- function(assay) {
 }
 
 
-# Makes initial guess of vmax value based on provided velocity data.
+# Makes initial guess of Vmax and Km values based on linear regression.
 # velocity_data : data.frame containing coefficients from quadratic regression model;
-# vmax : initial guess of vmax, if NULL returns the highest velocity as the initial guess.
+# return : numeric vector of length 2 containing estimates of Vmax and Km.
 
-guess_vmax <- function(velocity_data) {
-    signif(max(velocity_data$b, na.rm = TRUE), 2)
-}
-
-
-# Makes initial guess of Km value based on provided velocity data.
-# velocity_data : data.frame containing coefficients from quadratic regression model;
-# km : initial guess of Km, if NULL returns the geometrical mean of substrate range.
-
-guess_km <- function(velocity_data) {
-    min_max <- range(velocity_data$substrate_conc)
-    round(geo_mean(min_max))
+guess_vmax_km <- function(velocity_data) {
+    if (dim(velocity_data)[1] > 0) {
+        model <- lm(1/b ~ I(1/substrate_conc), data = velocity_data)
+        lin_coef <- coef(model)
+        Vmax_guess <- as.numeric(1/lin_coef[1]) 
+        Km_guess <- as.numeric(lin_coef[2] / lin_coef[1])
+        return(c(Vmax_guess, Km_guess))
+    }
 }
 
 
@@ -531,7 +527,6 @@ guess_km <- function(velocity_data) {
 # return : nls models or NULL if velocity_data has less then 3 rows.
 
 get_nls <- function(velocity_data, vmax, km) {
-    if (dim(velocity_data)[1] < 3) return(NULL)
     nls(b ~ Vmax * substrate_conc / (Km + substrate_conc),
         start = c(Vmax = vmax, Km = km),
         data = velocity_data, trace = F)

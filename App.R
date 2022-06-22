@@ -468,6 +468,30 @@ server <- function(input, output, session) {
     nls_models_list <- list()
     
     
+    ###### VISIT STAT ######
+    
+    fname <- 'visit_stat.csv'
+    if (file.exists(fname)) {
+        visit_table <- read.csv(fname, sep = ';', dec = ',')
+    } else {
+        visit_table <- data.frame(
+            date = character(),
+            n = integer()
+        )
+    }
+    today <- as.character(Sys.Date())
+    n <- visit_table$n[visit_table$date == today]
+    if (length(n) == 0) {
+        visit_table <- rbind(
+            visit_table,
+            data.frame(date = today,
+                       n = 1)
+        )
+    } else {
+        visit_table$n[visit_table$date == today] <- n + 1
+    }
+    write.table(visit_table, fname, sep = ';', dec = ',', row.names = FALSE)
+    
     ###### LOADING FILES TAB ######
     
       ### SIDE BAR PANEL ###
@@ -503,6 +527,7 @@ server <- function(input, output, session) {
                               open_file = FALSE)
         }
     )
+    
     
       ### MAIN PANEL ###
     
@@ -734,15 +759,26 @@ server <- function(input, output, session) {
         current_velo_table()
     })
     
+    
+    last_sample_value <- character(0)
+    
     current_nls_model <- reactive({
-        vmax = guess_vmax(current_velo_table())
-        km = guess_km(current_velo_table())
+        guess <- guess_vmax_km(current_velo_table())
+        vmax = guess[1]
+        km = guess[2]
+        if (length(last_sample_value) == 0) {
+            updateNumericInput(session, 'Vmax', value = round(vmax, 2))
+            updateNumericInput(session, 'Km', value = round(km))
+            last_sample_value <<- input$sample_list_select
+        }
         if (input$manual_vmax_km) {
+            if (input$sample_list_select != last_sample_value) {
+                updateNumericInput(session, 'Vmax', value = round(vmax, 2))
+                updateNumericInput(session, 'Km', value = round(km))
+                last_sample_value <<- input$sample_list_select
+            }
             vmax = input$Vmax
             km = input$Km
-        } else {
-            updateNumericInput(session, 'Vmax', value = vmax)
-            updateNumericInput(session, 'Km', value = km)
         }
         nls_model <- get_nls(current_velo_table(), vmax = vmax, km = km)
         if (!is.null(input$sample_list_select)) {
@@ -793,9 +829,10 @@ server <- function(input, output, session) {
             result_table_df <<- init_result_table(s_list)
             for (smpl in s_list) {
                 v_data <- subset(velo_table(), name == smpl)
+                guess <- guess_vmax_km(v_data)
                 nls <- get_nls(v_data,
-                               vmax = guess_vmax(v_data),
-                               km = guess_km(v_data))
+                               vmax = guess[1],
+                               km = guess[2])
                 nls_models_list[[smpl]] <<- nls
                 Vmax <- get_coef_ci(nls, 'Vmax')
                 Km <- get_coef_ci(nls, 'Km')
@@ -1029,28 +1066,6 @@ server <- function(input, output, session) {
     
     output$visits <- {
         renderPlot({
-            fname <- 'visit_stat.csv'
-            if (file.exists(fname)) {
-                visit_table <- read.csv(fname, sep = ';', dec = ',')
-            } else {
-                visit_table <- data.frame(
-                    date = character(),
-                    n = integer()
-                )
-            }
-            today <- as.character(Sys.Date())
-            n <- visit_table$n[visit_table$date == today]
-            if (length(n) == 0) {
-                visit_table <- rbind(
-                    visit_table,
-                    data.frame(date = today,
-                               n = 1)
-                )
-            } else {
-                visit_table$n[visit_table$date == today] <- n + 1
-            }
-            write.table(visit_table, fname, sep = ';', dec = ',', row.names = FALSE)
-            
             n_visits <- sum(visit_table$n)
             plot <- ggplot(visit_table, aes(as.Date(date), n)) +
                 geom_line(color = 'darkblue') +
