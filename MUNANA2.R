@@ -516,6 +516,7 @@ guess_vmax_km <- function(velocity_data) {
         Km_guess <- as.numeric(lin_coef[2] / lin_coef[1])
         return(c(Vmax_guess, Km_guess))
     }
+    numeric()
 }
 
 

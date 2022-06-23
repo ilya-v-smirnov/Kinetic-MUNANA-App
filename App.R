@@ -464,7 +464,7 @@ server <- function(input, output, session) {
     std_fname <- character()
     smpl_fname <- character()
     rfu_fname <- character()
-    result_table_df <- data.frame()
+    result_table_df <- NULL
     nls_models_list <- list()
     
     
@@ -732,7 +732,10 @@ server <- function(input, output, session) {
       ### MAIN PANEL ###
     
     current_velo_table <- reactive({
-        subset(velo_table(), name == input$sample_list_select)
+        vt <- velo_table()
+        if (dim(vt)[1] > 0) {
+            return(subset(velo_table(), name == input$sample_list_select))
+        }
     })
     
     output$save_current_velocity_table <- downloadHandler(
@@ -763,10 +766,12 @@ server <- function(input, output, session) {
     last_sample_value <- character(0)
     
     current_nls_model <- reactive({
+        req(current_velo_table())
         guess <- guess_vmax_km(current_velo_table())
         vmax = guess[1]
         km = guess[2]
-        if (length(last_sample_value) == 0) {
+        req(vmax, km)
+        if (length(last_sample_value) == 0 & !is.na(vmax) & !is.na(km)) {
             updateNumericInput(session, 'Vmax', value = round(vmax, 2))
             updateNumericInput(session, 'Km', value = round(km))
             last_sample_value <<- input$sample_list_select
