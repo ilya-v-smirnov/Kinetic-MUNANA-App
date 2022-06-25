@@ -1,8 +1,8 @@
 
 library(shiny)
 
-path <- 'D:/R projects/Kinetic-MUNANA-App/'
-setwd(path)
+# path <- 'D:/R projects/Kinetic-MUNANA-App/'
+# setwd(path)
 
 source('./MUNANA2.R')
 source('./report.R')
@@ -896,6 +896,7 @@ server <- function(input, output, session) {
     })
     
     sub_result_table <- reactive({
+        req(velo_table())
         if (is.null(input$samples_check)) {
             sub_df <- subset(result_table(), Km != 0)
         } else {
