@@ -436,6 +436,21 @@ ui <- fluidPage(title = 'Kinetic MUNANA App',
                           )
                ),
                
+               tabPanel('Sample Data Sets',
+                        sidebarLayout(
+                            sidebarPanel(
+                                selectInput('dataset', label = 'Choose Data Set',
+                                            choices = c('PR8 + NPR-07/10/11' = '7_10_11',
+                                                        'PR8 + NPR-05/07/11' = '5_7_11',
+                                                        'Brightness Difference' = 'br_diff',
+                                                        '4-MU & MUNANA spectra' = 'spectra'),
+                                            selected = '7_10_11'),
+                                width = 2),
+                            mainPanel(
+                                uiOutput('data_sets_ui')
+                            ))
+                        ),
+               
                tabPanel('About',
                         
                         sidebarLayout(
@@ -828,6 +843,7 @@ server <- function(input, output, session) {
     
     result_table <- reactive({
         # auto calculation of result table
+        req(velo_table())
         if (dim(result_table_df)[1] == 0) {
             s_list <- sample_list()
             len <- length(s_list)
@@ -1065,6 +1081,125 @@ server <- function(input, output, session) {
         result <- spectrum_obj()
         result[[2]]
     })
+    
+    ###### SAMPLE DATA SETS TAB ######
+    
+    data_sets_view <- reactive({
+        switch(input$dataset,
+               '7_10_11' = wellPanel(
+                  h3('PR8 + NPR-07/10/11'),
+                  br(),
+                  h4('Description:'),
+                  br(),
+                  h5('Kinetic MUNANA assay was carried out with PR8 virus in the presence of anti-NA MAbs NPR-07, NPR-10, and NPR-11 (10 µg/ml).'),
+                  h5('PR8 virus alone and PR8 virus in the presence of irrelevant IgG antibody were incubated in control experiments.'),
+                  h5('The data set contains three tables necessary for the assay. Upload these tables in the first tab.'),
+                  br(),
+                  h4('Data:'),
+                  fluidRow(
+                      column(2,
+                             downloadButton('save_button1', 'Download Standard Table')),
+                      column(2,
+                             downloadButton('save_button2', 'Download Sample Table')),
+                      column(2,
+                             downloadButton('save_button3', 'Download RFU Table')))
+               ),
+               '5_7_11' = wellPanel(
+                    h3('PR8 + NPR-05/07/11'),
+                    br(),
+                    h4('Description:'),
+                    br(),
+                    h5('Kinetic MUNANA assay was carried out with PR8 virus in the presence of anti-NA MAbs NPR-05, NPR-07, and NPR-11 (10 µg/ml).'),
+                    h5('PR8 virus was incubated in the presence of irrelevant IgG antibody in a control experiment.'),
+                    h5('The data set contains three tables necessary for the assay. Upload these tables in the first tab.'),
+                    br(),
+                    h4('Data:'),
+                    br(),
+                    fluidRow(
+                        column(2,
+                               downloadButton('save_button1', 'Download Standard Table')),
+                        column(2,
+                               downloadButton('save_button2', 'Download Sample Table')),
+                        column(2,
+                               downloadButton('save_button3', 'Download RFU Table')))                  
+               ),
+               'spectra' = wellPanel(
+                    h3('4-MU & MUNANA spectra'),
+                    br(),
+                    h4('Description:'),
+                    br(),
+                    h5('4-MU and MUNANA were excited by ultraviolet light with wavelength 355±9 nm.'),
+                    h5('Their fluorescence was recorded at the range of wavelengts from 400 to 500 nm.'),
+                    h5('Upload this data to Utilities/Spectrum Analysis to see their emmission spectra overlaid.'),
+                    br(),
+                    h4('Data:'),
+                    br(),
+                    downloadButton('save_button1', 'Download Spectra')
+               ),
+               'br_diff' = wellPanel(
+                    h3('Brightness Difference'),
+                    br(),
+                    h4('Description:'),
+                    br(),
+                    h5('Serial dilutions of 4-MU and MUNANA with known concentrations of both were prepared to estimate their brightneass difference.'),
+                    h5('Upload this data to Utilities/Brightness Difference to calculate the brightness difference correction coefficient.'),
+                    br(),
+                    h4('Data:'),
+                    br(),
+                    downloadButton('save_button1', 'Download Brightness Data')
+               ))
+    })
+
+    
+    output$data_sets_ui <- renderUI({
+        data_sets_view()
+    })
+    
+    
+    sample_data_set <- reactive({
+        switch(input$dataset,
+               '7_10_11' = c('Standard table.xlsx' = './Sample Data Sets/PR8 virus + MAbs NPR-07 -10 -11/standard_table.xlsx',
+                             'Sample table.xlsx' = './Sample Data Sets/PR8 virus + MAbs NPR-07 -10 -11/sample_table.xlsx',
+                             'RFU data.xlsx' = './Sample Data Sets/PR8 virus + MAbs NPR-07 -10 -11/RFU Data.xlsx'),
+               '5_7_11' = c('Standard table.xlsx' = './Sample Data Sets/PR8 virus + MAbs NPR-05 -07 -10/standard_table.xlsx',
+                            'Sample table.xlsx' = './Sample Data Sets/PR8 virus + MAbs NPR-05 -07 -10/sample_table.xlsx',
+                            'RFU data.xlsx' = './Sample Data Sets/PR8 virus + MAbs NPR-05 -07 -10/RFU Data.xlsx'),
+               'spectra' = c('4-MU and MUNANA spectra.xlsx' = './Sample Data Sets/4-MU and MUNANA spectra/4-MU and MUNANA spectra.xlsx'),
+               'br_diff' = c('4-MU vs MUNANA.xlsx' = './Sample Data Sets/4-MU vs MUNANA brightness difference/4-MU vs MUNANA.xlsx'))
+    })
+    
+    output$save_button1 <- downloadHandler(
+        filename = function() {
+            names(sample_data_set())[1]
+        },
+        content = function(file) {
+            fname <- sample_data_set()[1]
+            data <- read_table(fname)
+            save_table(data, file, open_file = FALSE)
+        }
+    )
+    
+    output$save_button2 <- downloadHandler(
+        filename =  function() {
+            names(sample_data_set())[2]
+        },
+        content = function(file) {
+            fname <- sample_data_set()[2]
+            data <- read_table(fname)
+            save_table(data, file, open_file = FALSE)
+        }
+    )
+    
+    output$save_button3 <- downloadHandler(
+        filename =  function() {
+            names(sample_data_set())[3]
+        },
+        content = function(file) {
+            fname <- sample_data_set()[3]
+            data <- read_table(fname)
+            save_table(data, file, open_file = FALSE)
+        }
+    )
     
     
     ###### ABOUT TAB ######
