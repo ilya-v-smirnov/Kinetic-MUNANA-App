@@ -67,7 +67,7 @@ ui <- fluidPage(title = 'Kinetic MUNANA App',
                                     column(width = 5,
                                            numericInput('st_table_to', 'To:', value = 2, min = 1, max = 12))
                                 ),
-                                downloadButton('save_st_table', 'Save Template'),
+                                downloadButton('save_st_table', 'Save Template', icon = icon('file-excel')),
                                 br(), br(),
                                 fileInput('st_table_file', label = 'Choose file:', accept = c('.csv', '.xlsx')),
                                 
@@ -77,12 +77,12 @@ ui <- fluidPage(title = 'Kinetic MUNANA App',
                                            numericInput('sample_table_from', 'From:', value = 3, min = 1, max = 12)),
                                     column(width = 5,
                                            numericInput('sample_table_to', 'To:', value = 3, min = 1, max = 12))),
-                                downloadButton('save_sample_table', 'Save Template'),
+                                downloadButton('save_sample_table', 'Save Template', icon = icon('file-excel')),
                                 br(), br(),
                                 fileInput('sample_table_file', label = 'Choose file:', accept = c('.csv', '.xlsx')),
                                 
                                 h4('RFU Data'),
-                                downloadButton('save_RFU_table', 'Save Template'), br(), br(),
+                                downloadButton('save_RFU_table', 'Save Template', icon = icon('file-excel')), br(), br(),
                                 selectInput('time_format', label = 'Time format',
                                             choices = c('Excel' = 'excel', 'Seconds' = 'sec',
                                                         'Minutes' = 'min', 'Hours' = 'hour'),
@@ -232,9 +232,9 @@ ui <- fluidPage(title = 'Kinetic MUNANA App',
                                     fluidRow(column(7,
                                                     tableOutput('velo_table_output')),
                                              column(4,
-                                                    downloadButton('save_current_velocity_table', 'Save Current Data'),
+                                                    downloadButton('save_current_velocity_table', 'Save Current Data', icon = icon('file-excel')),
                                                     br(), br(),
-                                                    downloadButton('save_all_velocity_table', 'Save All Data')
+                                                    downloadButton('save_all_velocity_table', 'Save All Data', icon = icon('file-excel'))
                                                     ))
                                 ),
                                 wellPanel(
@@ -272,7 +272,7 @@ ui <- fluidPage(title = 'Kinetic MUNANA App',
                                         column(7,
                                                tableOutput('result_table')),
                                         column(4,
-                                               downloadButton('save_mm_table', 'Save Data'))
+                                               downloadButton('save_mm_table', 'Save Data', icon = icon('file-excel')))
                                     )
                                 )
                             )
@@ -329,7 +329,7 @@ ui <- fluidPage(title = 'Kinetic MUNANA App',
                                                     tableOutput('vmax_stat')),
                                              column(4,
                                                     br(), br(),
-                                                    downloadButton('save_vmax_data', 'Save Data')
+                                                    downloadButton('save_vmax_data', 'Save Data', icon = icon('file-excel'))
                                              ))
                                 ),
                                 wellPanel(
@@ -338,7 +338,7 @@ ui <- fluidPage(title = 'Kinetic MUNANA App',
                                                     tableOutput('km_stat')),
                                             column(4,
                                                    br(), br(),
-                                                    downloadButton('save_km_data', 'Save Data')
+                                                    downloadButton('save_km_data', 'Save Data', icon = icon('file-excel'))
                                                     ))
 
                                 )
@@ -372,7 +372,7 @@ ui <- fluidPage(title = 'Kinetic MUNANA App',
                                 h3('Report'),
                                 dateInput('date', 'Date', width = '100px', weekstart = 1, format = 'dd.mm.yyyy'),
                                 textInput('report_title', 'Title', width = '500px'),
-                                downloadButton('save_report', 'Save Report')
+                                downloadButton('save_report', 'Save Report', icon = icon('file-word'))
                                 )
                         )
                         ),
@@ -383,7 +383,7 @@ ui <- fluidPage(title = 'Kinetic MUNANA App',
                                    
                                    sidebarLayout(
                                        sidebarPanel(h4('Save Template'),
-                                                    downloadButton('save_bright_template', 'Download'), br(), br(),
+                                                    downloadButton('save_bright_template', 'Download', icon = icon('file-excel')), br(), br(),
                                                     h4('Load data'),
                                                     fileInput('br_table_file', label = 'Choose file:', accept = c('.csv', '.xlsx')),
                                                     width = 2),
@@ -408,7 +408,7 @@ ui <- fluidPage(title = 'Kinetic MUNANA App',
                                    
                                    sidebarLayout(
                                        sidebarPanel(h4('Save Template'),
-                                                    downloadButton('save_spectrum_template', 'Download'), br(), br(),
+                                                    downloadButton('save_spectrum_template', 'Download', icon = icon('file-excel')), br(), br(),
                                                     h4('Load data'),
                                                     fileInput('spectrum_table_file', label = 'Choose file:', accept = c('.csv', '.xlsx')),
                                                     checkboxInput('show_points', 'Show individual points', value = FALSE),
@@ -448,8 +448,17 @@ ui <- fluidPage(title = 'Kinetic MUNANA App',
                                 width = 2),
                             mainPanel(
                                 uiOutput('data_sets_ui')
-                            ))
-                        ),
+                            )),
+                        icon = icon('file-excel')
+               ),
+               
+               tabPanel('User Manual',
+                        
+                        tags$iframe(style = "height:800px; width:100%;scrolling=yes", 
+                                    src = 'User Manual.pdf?raw=1', type="application/pdf"),
+                        
+                        icon = icon('file-pdf')
+               ),
                
                tabPanel('About',
                         
@@ -1096,13 +1105,14 @@ server <- function(input, output, session) {
                   h5('The data set contains three tables necessary for the assay. Upload these tables in the first tab.'),
                   br(),
                   h4('Data:'),
+                  br(),
                   fluidRow(
-                      column(2,
-                             downloadButton('save_button1', 'Download Standard Table')),
-                      column(2,
-                             downloadButton('save_button2', 'Download Sample Table')),
-                      column(2,
-                             downloadButton('save_button3', 'Download RFU Table')))
+                      column(3,
+                             downloadButton('save_button1', 'Download Standard Table', icon = icon('file-excel'))),
+                      column(3,
+                             downloadButton('save_button2', 'Download Sample Table', icon = icon('file-excel'))),
+                      column(3,
+                             downloadButton('save_button3', 'Download RFU Table', icon = icon('file-excel'))))
                ),
                '5_7_11' = wellPanel(
                     h3('PR8 + NPR-05/07/11'),
@@ -1116,12 +1126,12 @@ server <- function(input, output, session) {
                     h4('Data:'),
                     br(),
                     fluidRow(
-                        column(2,
-                               downloadButton('save_button1', 'Download Standard Table')),
-                        column(2,
-                               downloadButton('save_button2', 'Download Sample Table')),
-                        column(2,
-                               downloadButton('save_button3', 'Download RFU Table')))                  
+                        column(3,
+                               downloadButton('save_button1', 'Download Standard Table', icon = icon('file-excel'))),
+                        column(3,
+                               downloadButton('save_button2', 'Download Sample Table', icon = icon('file-excel'))),
+                        column(3,
+                               downloadButton('save_button3', 'Download RFU Table', icon = icon('file-excel'))))                  
                ),
                'spectra' = wellPanel(
                     h3('4-MU & MUNANA spectra'),
@@ -1134,7 +1144,7 @@ server <- function(input, output, session) {
                     br(),
                     h4('Data:'),
                     br(),
-                    downloadButton('save_button1', 'Download Spectra')
+                    downloadButton('save_button1', 'Download Spectra', icon = icon('file-excel'))
                ),
                'br_diff' = wellPanel(
                     h3('Brightness Difference'),
@@ -1146,7 +1156,7 @@ server <- function(input, output, session) {
                     br(),
                     h4('Data:'),
                     br(),
-                    downloadButton('save_button1', 'Download Brightness Data')
+                    downloadButton('save_button1', 'Download Brightness Data', icon = icon('file-excel'))
                ))
     })
 
@@ -1159,11 +1169,11 @@ server <- function(input, output, session) {
     sample_data_set <- reactive({
         switch(input$dataset,
                '7_10_11' = c('Standard table.xlsx' = './Sample Data Sets/PR8 virus + MAbs NPR-07 -10 -11/standard_table.xlsx',
-                             'Sample table.xlsx' = './Sample Data Sets/PR8 virus + MAbs NPR-07 -10 -11/sample_table.xlsx',
-                             'RFU data.xlsx' = './Sample Data Sets/PR8 virus + MAbs NPR-07 -10 -11/RFU Data.xlsx'),
-               '5_7_11' = c('Standard table.xlsx' = './Sample Data Sets/PR8 virus + MAbs NPR-05 -07 -10/standard_table.xlsx',
-                            'Sample table.xlsx' = './Sample Data Sets/PR8 virus + MAbs NPR-05 -07 -10/sample_table.xlsx',
-                            'RFU data.xlsx' = './Sample Data Sets/PR8 virus + MAbs NPR-05 -07 -10/RFU Data.xlsx'),
+                             'Sample table.xlsx'   = './Sample Data Sets/PR8 virus + MAbs NPR-07 -10 -11/sample_table.xlsx',
+                             'RFU data.xlsx'       = './Sample Data Sets/PR8 virus + MAbs NPR-07 -10 -11/RFU Data.xlsx'),
+               '5_7_11' = c('Standard table.xlsx' = './Sample Data Sets/PR8 virus + MAbs NPR-05 -07 -11/standard_table.xlsx',
+                            'Sample table.xlsx'   = './Sample Data Sets/PR8 virus + MAbs NPR-05 -07 -11/sample_table.xlsx',
+                            'RFU data.xlsx'       = './Sample Data Sets/PR8 virus + MAbs NPR-05 -07 -11/RFU Data.xlsx'),
                'spectra' = c('4-MU and MUNANA spectra.xlsx' = './Sample Data Sets/4-MU and MUNANA spectra/4-MU and MUNANA spectra.xlsx'),
                'br_diff' = c('4-MU vs MUNANA.xlsx' = './Sample Data Sets/4-MU vs MUNANA brightness difference/4-MU vs MUNANA.xlsx'))
     })

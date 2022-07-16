@@ -5,10 +5,10 @@ account: angeletti-lab
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 6538007
-bundleId: 6042841
+bundleId: 6104105
 url: https://angeletti-lab.shinyapps.io/kinetic-munana-app/
-when: 1656186412.92258
-lastSyncTime: 1656186412.92258
+when: 1657996707.31362
+lastSyncTime: 1657996707.31362
 asMultiple: FALSE
 asStatic: FALSE
-ignoredFiles: doc/desktop.ini|run.r.Rout|visit_stat.csv
+ignoredFiles: .gitattributes|doc/~$er Manual.docx|doc/~WRL0754.tmp|doc/desktop.ini|doc/User Manual.docx|doc/User Manual.pdf|run.r.Rout|visit_stat.csv
