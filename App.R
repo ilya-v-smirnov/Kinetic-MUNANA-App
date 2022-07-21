@@ -318,8 +318,8 @@ ui <- fluidPage(title = 'Kinetic MUNANA App',
                                                         'Hochberg' = 'hochberg',
                                                         'Hommel' = 'hommel',
                                                         'Bonferroni' = 'bonferroni',
-                                                        'Benjamini & Hochberg' = "BH",
-                                                        'Benjamini & Yekutieli' = "BY"),
+                                                        'Benjamini & Hochberg' = 'BH',
+                                                        'Benjamini & Yekutieli' = 'BY'),
                                             selected = 'bonferroni'),
                             width = 2),
                             mainPanel(
@@ -1025,6 +1025,7 @@ server <- function(input, output, session) {
                         km_vmax_plot = km_vmax_plot(),
                         vmax_stat_table = get_stat()[[1]],
                         km_stat_table = get_stat()[[2]],
+                        padjust = input$p_adjust,
                         items_to_include = input$report_comps)
         }
     )

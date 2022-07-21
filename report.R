@@ -40,6 +40,7 @@ save_report <- function(path,
                         km_vmax_plot,
                         vmax_stat_table,
                         km_stat_table,
+                        padjust,
                         items_to_include = NULL) {
     
     # Date, title and files
@@ -158,11 +159,24 @@ save_report <- function(path,
         vmax_line <- fpar(ftext('Statistics: Vmax', section_text_style), fp_p = section_par_style)
         km_line <- fpar(ftext('Statistics: Km', section_text_style), fp_p = section_par_style)
         
+        padjust <- switch (padjust,
+                           'no' = 'No',
+                           'holm' = 'Holm',
+                           'hochberg' = 'Hochberg',
+                           'hommel' = 'Hommel',
+                           'bonferroni' = 'Bonferroni',
+                           'BH' = 'Benjamini & Hochberg',
+                           'BY' = 'Benjamini & Yekutieli')
+        
+        padjust_method_text <- ftext(padjust, bold_text)
+        padjust_method_line <- fpar('P-value adjustment method: ', padjust_method_text)
+        
         report <- report %>%
             body_add_fpar(vmax_line) %>%
             body_add_table(vmax_stat_table, style = 'table_template') %>%
             body_add_fpar(km_line) %>%
-            body_add_table(km_stat_table, style = 'table_template')
+            body_add_table(km_stat_table, style = 'table_template') %>%
+            body_add_fpar(padjust_method_line)
     }
     
     print(report, target = path)

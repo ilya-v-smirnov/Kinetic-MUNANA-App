@@ -571,6 +571,7 @@ compare_vmax_km <- function(velo_data, vmax_km_data,
         })
     }
     
+    
     samples <- unique(vmax_km_data$name)
     vmax_km_data <- subset(vmax_km_data, select = c('name', 'Vmax', 'Km'))
     Vmax_table <- data.frame()
@@ -594,14 +595,16 @@ compare_vmax_km <- function(velo_data, vmax_km_data,
         Km_line$name <- smpl
         Km_table <- rbind(Km_table, Km_line)
     }
+    
     Vmax_table <- Vmax_table[,  c(5, 1, 4)]
     Km_table <- Km_table[,  c(5, 1, 4)]
     names(Vmax_table) <- c('name', 'change', 'p.value')
     names(Km_table) <- c('name', 'change', 'p.value')
     Vmax_table <- merge(vmax_km_data[, c('name', 'Vmax')],
                         Vmax_table, all = TRUE)
-    Km_table <- merge(vmax_km_data[, c('name', 'Vmax')],
-                      Vmax_table, all = TRUE)
+    Km_table <- merge(vmax_km_data[, c('name', 'Km')],
+                      Km_table, all = TRUE)
+    
     if (p.adjust_method != 'no') {
         Vmax_table$p.adjust <- p.adjust(Vmax_table$p.value, method = p.adjust_method)
         Km_table$p.adjust <- p.adjust(Km_table$p.value, method = p.adjust_method)
@@ -615,6 +618,7 @@ compare_vmax_km <- function(velo_data, vmax_km_data,
         Vmax_table[, 2:4] <- signif(Vmax_table[, 2:4], 3)
         Km_table[, 2:4] <- signif(Km_table[, 2:4], 3)
     }
+    
     return(list(Vmax = Vmax_table,
                 Km = Km_table))
 }
@@ -872,18 +876,24 @@ show_km_vmax <- function(data, show_error_bars = TRUE) {
         geom_point(size = 3) +
         scale_color_discrete(name = 'Sample') +
         plot_theme +
-        labs(x = expression('Substrate concentration, '*mu*'M'),
+        labs(x = expression('Km, '*mu*'M'),
              y = expression('Vmax, '*mu*'M/min'))
-    if (show_error_bars) plot <- plot +
-            geom_errorbarh(aes(xmin = Km_lower, xmax = Km_upper)) +
-            geom_errorbar(aes(ymin = Vmax_lower, ymax = Vmax_upper)) 
+    if (show_error_bars) {
+        x_range <- range(c(data$Vmax_lower, data$Vmax_upper))
+        y_range <- range(c(data$Km_lower, data$Km_upper))
+        h <- (x_range[2] - x_range[1]) / 25
+        w <- (y_range[2] - y_range[1]) / 25
+        plot <- plot +
+            geom_errorbarh(aes(xmin = Km_lower, xmax = Km_upper), height = h) +
+            geom_errorbar(aes(ymin = Vmax_lower, ymax = Vmax_upper), width = w) 
+    }
     plot
 }
 
 
 ##################
 
-# setwd('D:/R projects/Kinetic-MUNANA-App/Sample Data Sets/PR8 virus + MAbs/')
+# setwd('D:/R projects/Kinetic-MUNANA-App/Sample Data Sets/PR8 virus + MAbs NPR-05 -07 -11/')
 # 
 # std_data <- read_standard_table('./standard_table.xlsx')
 # smpl_data <- read_sample_table('./sample_table.xlsx')
@@ -905,8 +915,8 @@ show_km_vmax <- function(data, show_error_bars = TRUE) {
 # for (smpl in unique(velo_data_table$name)) {
 #     vd <- subset(velo_data_table, name == smpl)
 #     m <- get_nls(vd,
-#                  vmax = guess_vmax(vd),
-#                  km = guess_km(vd))
+#                  vmax = guess_vmax_km(vd)[1],
+#                  km = guess_vmax_km(vd)[2])
 #     vmax <- coef(m)[1]
 #     km <- coef(m)[2]
 #     vmax_km_df <- rbind(vmax_km_df,
@@ -916,6 +926,15 @@ show_km_vmax <- function(data, show_error_bars = TRUE) {
 # }
 # 
 # vmax_km_df
+# 
+# 
+# data <- read_table('D:/temp/2022-07-21_mm data.xlsx')
+# 
+# compare_vmax_km(velo_data_table, vmax_km_data = data, ref_sample = 'PR8+6A1', p.adjust_method = 'no')
+# 
+# show_km_vmax(data)
+# 
+
 # 
 # 
 # 
