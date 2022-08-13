@@ -853,6 +853,8 @@ server <- function(input, output, session) {
     result_table <- reactive({
         # auto calculation of result table
         req(velo_table())
+        req(Km())
+        req(Vmax())
         if (dim(result_table_df)[1] == 0) {
             s_list <- sample_list()
             len <- length(s_list)
@@ -864,22 +866,28 @@ server <- function(input, output, session) {
                                vmax = guess[1],
                                km = guess[2])
                 nls_models_list[[smpl]] <<- nls
-                Vmax <- get_coef_ci(nls, 'Vmax')
-                Km <- get_coef_ci(nls, 'Km')
+                Vmax_coef <- get_coef_ci(nls, 'Vmax')
+                Km_coef <- get_coef_ci(nls, 'Km')
                 result_table_df <<- edit_result_table(result_table_df,
                                                       name = smpl,
-                                                      Vmax = Vmax[1],
-                                                      Vmax_lower = Vmax[2],
-                                                      Vmax_upper = Vmax[3],
-                                                      Km = Km[1],
-                                                      Km_lower = Km[2],
-                                                      Km_upper = Km[3])
+                                                      Vmax = Vmax_coef[1],
+                                                      Vmax_lower = Vmax_coef[2],
+                                                      Vmax_upper = Vmax_coef[3],
+                                                      Km = Km_coef[1],
+                                                      Km_lower = Km_coef[2],
+                                                      Km_upper = Km_coef[3])
             }
         # manual correction of results
         } else {
             smpl <- input$sample_list_select
             result_table_df <<- edit_result_table(result_table_df,
-                                                  name = smpl, Vmax = Vmax, Km = Km)
+                                                  name = smpl,
+                                                  Vmax = Vmax()[1],
+                                                  Vmax_lower = Vmax()[2],
+                                                  Vmax_upper = Vmax()[3],
+                                                  Km = Km()[1],
+                                                  Km_lower = Km()[2],
+                                                  Km_upper = Km()[3])
             
         }
         result_table_df

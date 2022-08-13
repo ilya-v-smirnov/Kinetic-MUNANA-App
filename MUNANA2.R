@@ -514,6 +514,13 @@ guess_vmax_km <- function(velocity_data) {
         lin_coef <- coef(model)
         Vmax_guess <- as.numeric(1/lin_coef[1]) 
         Km_guess <- as.numeric(lin_coef[2] / lin_coef[1])
+        if (Vmax_guess <= 0) {
+            Vmax_guess <- max(velocity_data$b)
+        }
+        if (Km_guess <= 0) {
+            r <- range(velocity_data$substrate_conc)
+            Km_guess <- 10^(log10(r[1]) + (log10(r[2]) - log10(r[1]))/2)
+        }
         return(c(Vmax_guess, Km_guess))
     }
     numeric()
