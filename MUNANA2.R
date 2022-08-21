@@ -595,18 +595,24 @@ compare_vmax_km <- function(velo_data, vmax_km_data,
                               Km0 = Km0, Km1 = Km1)
         mod_summary <- summary(model)
         summary_table <- as.data.frame(mod_summary$parameters, row.names = NULL)
+        # fold-change
+        Vmax_fold <- Vmax1 / Vmax0
+        Km_fold <- Km1 / Km0
+        # formatting
         Vmax_line <- summary_table[2,]
         Vmax_line$name <- smpl
+        Vmax_line$fold <- Vmax_fold
         Vmax_table <- rbind(Vmax_table, Vmax_line)
         Km_line <- summary_table[4,]
         Km_line$name <- smpl
+        Km_line$fold <- Km_fold
         Km_table <- rbind(Km_table, Km_line)
     }
     
-    Vmax_table <- Vmax_table[,  c(5, 1, 4)]
-    Km_table <- Km_table[,  c(5, 1, 4)]
-    names(Vmax_table) <- c('name', 'change', 'p.value')
-    names(Km_table) <- c('name', 'change', 'p.value')
+    Vmax_table <- Vmax_table[,  c(5, 1, 6, 4)]
+    Km_table <- Km_table[,  c(5, 1, 6, 4)]
+    names(Vmax_table) <- c('name', 'change', 'fold', 'p.value')
+    names(Km_table) <- c('name', 'change', 'fold', 'p.value')
     Vmax_table <- merge(vmax_km_data[, c('name', 'Vmax')],
                         Vmax_table, all = TRUE)
     Km_table <- merge(vmax_km_data[, c('name', 'Km')],
@@ -617,13 +623,13 @@ compare_vmax_km <- function(velo_data, vmax_km_data,
         Km_table$p.adjust <- p.adjust(Km_table$p.value, method = p.adjust_method)
         Vmax_table$stars <- signif_stars(Vmax_table$p.adjust)
         Km_table$stars <- signif_stars(Km_table$p.adjust)
-        Vmax_table[, 2:5] <- signif(Vmax_table[, 2:5], 3)
-        Km_table[, 2:5] <- signif(Km_table[, 2:5], 3)
+        Vmax_table[, 2:6] <- signif(Vmax_table[, 2:6], 4)
+        Km_table[, 2:6] <- signif(Km_table[, 2:6], 4)
     } else {
         Vmax_table$stars <- signif_stars(Vmax_table$p.value)
         Km_table$stars <- signif_stars(Km_table$p.value)
-        Vmax_table[, 2:4] <- signif(Vmax_table[, 2:4], 3)
-        Km_table[, 2:4] <- signif(Km_table[, 2:4], 3)
+        Vmax_table[, 2:5] <- signif(Vmax_table[, 2:5], 4)
+        Km_table[, 2:5] <- signif(Km_table[, 2:5], 4)
     }
     
     return(list(Vmax = Vmax_table,

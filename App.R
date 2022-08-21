@@ -40,8 +40,8 @@ get_coef_ci <- function(model, par) {
     coefs <- coef(model)
     ci <- confint(model)
     switch(par,
-           'Vmax' = signif(c(coefs[1], ci[1,1], ci[1,2]), 3),
-           'Km' = signif(c(coefs[2], ci[2,1], ci[2,2]), 3),
+           'Vmax' = signif(c(coefs[1], ci[1,1], ci[1,2]), 4),
+           'Km' = signif(c(coefs[2], ci[2,1], ci[2,2]), 4),
            NULL)
 }
 
@@ -796,14 +796,14 @@ server <- function(input, output, session) {
         km = guess[2]
         req(vmax, km)
         if (length(last_sample_value) == 0 & !is.na(vmax) & !is.na(km)) {
-            updateNumericInput(session, 'Vmax', value = round(vmax, 2))
-            updateNumericInput(session, 'Km', value = round(km))
+            updateNumericInput(session, 'Vmax', value = signif(vmax, 4))
+            updateNumericInput(session, 'Km', value = signif(km, 4))
             last_sample_value <<- input$sample_list_select
         }
         if (input$manual_vmax_km) {
             if (input$sample_list_select != last_sample_value) {
-                updateNumericInput(session, 'Vmax', value = round(vmax, 2))
-                updateNumericInput(session, 'Km', value = round(km))
+                updateNumericInput(session, 'Vmax', value = signif(vmax, 4))
+                updateNumericInput(session, 'Km', value = signif(km, 4))
                 last_sample_value <<- input$sample_list_select
             }
             vmax = input$Vmax
