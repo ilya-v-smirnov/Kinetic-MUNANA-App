@@ -1,7 +1,7 @@
 
 library(reshape2)
 
-# path <- 'D:/Google Drive/Gotheburg University/Diary/!Projects/14. MUNANA app/'
+# path <- 'D:/R projects/Kinetic-MUNANA-App/'
 # setwd(path)
 # source('./MUNANA2.R')
 
@@ -105,7 +105,7 @@ spectrum_analysis <- function(path,
                 figure = fig))
 }
 
-spectrum_analysis('./Sample Data Sets/4-MU and MUNANA spectra/4-MU and MUNANA spectra.xlsx', show_points = T, log_scale = T, add_band = T, bandwidth = 1)
+# spectrum_analysis('./Sample Data Sets/4-MU and MUNANA spectra/4-MU and MUNANA spectra.xlsx', show_points = T, log_scale = T, add_band = T, bandwidth = 1)
 
 
 save_spectrum_template <- function(path) {
@@ -115,3 +115,47 @@ save_spectrum_template <- function(path) {
                      buffer = '')
     save_table(df, path, open_file = FALSE)
 }
+
+
+# Generates a sequence of substrate concentrations based on starting concentration and titration step
+
+substrate_titration <- function(start, step, n_steps = 8) signif(start/step^(0:(n_steps - 1)), 3)
+
+ 
+show_modelling_plot <- function(start_conc, titr_step, n_steps = 8, 
+                      Km1, Vmax1,
+                      Km2 = NA, Vmax2 = NA,
+                      error_sd = 0.0001) {
+    velocity <- function(substrate_conc, Km, Vmax) {
+        (Vmax * substrate_conc) / (Km + substrate_conc)
+    }
+    
+    if (is.na(start_conc) | is.na(titr_step) | is.na(n_steps)) return(NULL)
+    s_conc <- substrate_titration(start_conc, titr_step, n_steps)
+    
+    if (is.na(Km1) | is.na(Vmax1)) return(NULL)
+    velo_data <- 
+        data.frame(substrate_conc = s_conc,
+                   b = velocity(s_conc, Km = Km1, Vmax = Vmax1) + rnorm(n_steps, mean = 0, sd = error_sd))
+    model <- get_nls(velo_data, vmax = Vmax1, km = Km1)
+    
+    if (is.na(Km2) | is.na(Vmax2)) {
+        plot <- show_mm_plot(data = velo_data, model = model)
+    } else {
+        velo_data2 <- 
+            data.frame(substrate_conc = s_conc,
+                       b = velocity(s_conc, Km = Km2, Vmax = Vmax2) + rnorm(n_steps, mean = 0, sd = error_sd))
+        model2 <- get_nls(velo_data2, vmax = Vmax2, km = Km2)
+        velo_data$name <- 'Reference'
+        velo_data2$name <- 'Tested Sample'
+        vd <- rbind(velo_data, velo_data2)
+        plot <- show_mm_plots_layout(velocity_data = vd,
+                                     nls_models = list('Reference' = model,
+                                                       'Tested Sample' = model2))
+    }
+    
+    plot
+}
+
+
+# show_modelling_plot(100, n_steps = 5, titr_step = 2, Km1 = 12, Vmax1 = 0.3, Km2 = 22, Vmax2 = 0.6, error_sd = 0.0001)

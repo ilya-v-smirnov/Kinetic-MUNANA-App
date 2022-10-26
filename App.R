@@ -433,6 +433,33 @@ ui <- fluidPage(title = 'Kinetic MUNANA App',
                                                  
                                                  )
                                    )
+                          ),
+                          tabPanel('Assay modelling',
+                                   sidebarLayout(
+                                       sidebarPanel(h4('Substrate concentrations'),
+                                                    numericInput('substrate_start', 'Starting concentration, µM',
+                                                                 value = 1000, min = 20, max = 10000, step = 20),
+                                                    numericInput('substrate_step', 'Titration step',
+                                                                 value = 2, min = 2, max = 15, step = 1),
+                                                    numericInput('n_steps', 'Number of steps',
+                                                                 value = 8, min = 3, max = 20, step = 1),
+                                                    checkboxInput('add_ts', 'Add Tested Sample', value = FALSE),
+                                                    width = 2),
+                                       mainPanel(h3('Assay Modeling'),
+                                                 h4('Substrate titration sequence'),
+                                                 verbatimTextOutput('titration_steps'),
+                                                 fluidRow(column(4,
+                                                                 h4('Reference Sample'),
+                                                                 numericInput('ref_km', 'Km', value = 10, min = 1.0, max = 2000, step = 0.1),
+                                                                 numericInput('ref_vmax', 'Vmax', value = 0.5, min = 0.05, max = 50, step = 0.05)),
+                                                          column(4,
+                                                                 conditionalPanel(condition = 'input.add_ts == true',
+                                                                                  h4('Tested Sample'),
+                                                                                  numericInput('ts_km', 'Km', value = 10, min = 1.0, max = 2000, step = 0.1),
+                                                                                  numericInput('ts_vmax', 'Vmax', value = 0.5, min = 0.05, max = 50, step = 0.05)))),
+                                                 plotOutput('modelling_plot', width = '700px', height = '550px')
+                                       )
+                                 )
                           )
                ),
                
@@ -784,7 +811,7 @@ server <- function(input, output, session) {
     
     output$velo_table_output <- renderTable({
         current_velo_table()
-    })
+    }, digits = 3)
     
     
     last_sample_value <- character(0)
@@ -1099,6 +1126,29 @@ server <- function(input, output, session) {
         result <- spectrum_obj()
         result[[2]]
     })
+    
+    
+    #### ASSAY MODELLING ####
+    
+    output$titration_steps <- reactive({
+        steps <- substrate_titration(input$substrate_start, input$substrate_step, input$n_steps)
+        paste(steps, collapse = ' ')
+    })
+    
+    mod_plot <- reactive({
+        show_modelling_plot(start_conc = input$substrate_start,
+                            titr_step = input$substrate_step,
+                            n_steps = input$n_steps,
+                            Km1 = input$ref_km,
+                            Vmax1 = input$ref_vmax,
+                            Km2 = ifelse(input$add_ts, input$ts_km, NA),
+                            Vmax2 = ifelse(input$add_ts, input$ts_vmax, NA))
+    })
+
+    output$modelling_plot <- renderPlot({
+        mod_plot()
+    })
+    
     
     ###### SAMPLE DATA SETS TAB ######
     

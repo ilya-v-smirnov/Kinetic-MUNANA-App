@@ -204,6 +204,7 @@ read_sample_table <- function(path) {
     if (! is.numeric(df$substrate_conc)) stop('substrate_conc column contains non-numeric values')
     if (all(df$substrate_conc == 0)) stop('substrate_conc column is empty!')
     if (all(is.na(df$substrate_conc))) stop('substrate_conc column is empty!')
+    df$name <- factor(df$name, levels = unique(df$name))
     df[, col_names_ref]
 }
 
@@ -724,7 +725,7 @@ show_progress_curves <- function(assay,
                                  show_velocities = FALSE,
                                  curve_models = NULL) {
     substr_conc_levels <- sort(unique(assay$progress_curves$substrate_conc), decreasing = T)
-    samples <- unique(assay$progress_curves$name)
+    samples <- levels(assay$progress_curves$name)
     plots <- list()
     if (mode == 'all') {
         plot <- ggplot(assay$progress_curves, aes(Time, conc, group = well))
@@ -813,7 +814,7 @@ get_mm_model <- function(model, max_conc) {
 
 # Makes a Michaelis-Mentent plot.
 # data : data.frame containing reaction velocity data (comes from the model_progress_curves() function);
-# model : nls model to be shown; if NULL, no moedel appears, only individual data points.
+# model : nls model to be shown; if NULL, no model appears, only individual data points.
 # return : ggplot object.
 
 show_mm_plot <- function(data, model = NULL) {
@@ -842,7 +843,7 @@ show_mm_plot <- function(data, model = NULL) {
 # Shows several Michaelis-Mentent curves in one plot.
 # velocity_data : data.frame containing reaction velocity data (comes from the model_progress_curves() function);
 # model : list of nls model to be show;
-# samples_include : charcter vector, a list of samples to show; if NULL, all curves will be shown.
+# samples_include : character vector, a list of samples to show; if NULL, all curves will be shown.
 # return : ggplot object.
 
 show_mm_plots_layout <- function(velocity_data,
