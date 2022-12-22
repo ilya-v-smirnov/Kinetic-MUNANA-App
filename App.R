@@ -196,7 +196,7 @@ ui <- fluidPage(title = 'Kinetic MUNANA App',
                                                         'By sample' = 'by sample',
                                                         'By sample & concentration' = 'by sample & conc'),
                                             selected = 'by sample'),
-                                checkboxInput('add_velo', 'Show velocities', value = FALSE),
+                                checkboxInput('add_velo', 'Show velocities', value = TRUE),
                                 width = 2),
                             
                             mainPanel(
@@ -379,6 +379,20 @@ ui <- fluidPage(title = 'Kinetic MUNANA App',
                
                navbarMenu('Utilities',
                           
+                          # tabPanel('Experiment Statistics',
+                          #          
+                          #          sidebarLayout(
+                          #              sidebarPanel(h4('Statistic approach'),
+                          #                           selectInput('stat_appr', label = 'Select approach',
+                          #                                       choices = c('Non-linear Mixed Effect Model' = 'nlme',
+                          #                                                   'ANOVA' = 'anova'),
+                          #                                       selected = 'nlme'),
+                          #                           width = 2),
+                          #              mainPanel(uiOutput('exp_stat_win'))
+                          #           )
+                          #              
+                          # ),
+                          
                           tabPanel('Brightness Difference',
                                    
                                    sidebarLayout(
@@ -436,14 +450,14 @@ ui <- fluidPage(title = 'Kinetic MUNANA App',
                           ),
                           tabPanel('Assay modelling',
                                    sidebarLayout(
-                                       sidebarPanel(h4('Substrate concentrations'),
+                                       sidebarPanel(h4('Substrate concentration'),
                                                     numericInput('substrate_start', 'Starting concentration, µM',
                                                                  value = 1000, min = 20, max = 10000, step = 20),
                                                     numericInput('substrate_step', 'Titration step',
                                                                  value = 2, min = 2, max = 15, step = 1),
                                                     numericInput('n_steps', 'Number of steps',
                                                                  value = 8, min = 3, max = 20, step = 1),
-                                                    checkboxInput('add_ts', 'Add Tested Sample', value = FALSE),
+                                                    checkboxInput('add_ts', 'Add Test Sample', value = FALSE),
                                                     width = 2),
                                        mainPanel(h3('Assay Modeling'),
                                                  h4('Substrate titration sequence'),
@@ -454,7 +468,7 @@ ui <- fluidPage(title = 'Kinetic MUNANA App',
                                                                  numericInput('ref_vmax', 'Vmax', value = 0.5, min = 0.05, max = 50, step = 0.05)),
                                                           column(4,
                                                                  conditionalPanel(condition = 'input.add_ts == true',
-                                                                                  h4('Tested Sample'),
+                                                                                  h4('Test Sample'),
                                                                                   numericInput('ts_km', 'Km', value = 10, min = 1.0, max = 2000, step = 0.1),
                                                                                   numericInput('ts_vmax', 'Vmax', value = 0.5, min = 0.05, max = 50, step = 0.05)))),
                                                  plotOutput('modelling_plot', width = '700px', height = '550px')
@@ -1066,6 +1080,27 @@ server <- function(input, output, session) {
     )
     
     ###### UTILITIES ######
+    
+    #### EXPERIMENT STATISTICS ####
+    # 
+    # exp_stat_view <- reactive({
+    #     view <-
+    #     switch (input$stat_appr,
+    #         'nlme' = wellPanel(
+    #             fileInput('nlme_files', label = 'Select velocity data files', multiple = TRUE, accept = c('.csv', '.xlsx'))
+    #             
+    #         ),
+    #         'anova' = wellPanel()
+    #     )
+    #     nlme_files <- input$nlme_files
+    #     print(read_velo_tables(nlme_files$datapath))
+    #     view
+    # })
+    # 
+    # output$exp_stat_win <- renderUI({
+    #     exp_stat_view()
+    # })
+    
     
     #### BRIGHTNESS DIFFERENCE ####
     

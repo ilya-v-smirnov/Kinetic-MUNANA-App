@@ -147,11 +147,11 @@ show_modelling_plot <- function(start_conc, titr_step, n_steps = 8,
                        b = velocity(s_conc, Km = Km2, Vmax = Vmax2) + rnorm(n_steps, mean = 0, sd = error_sd))
         model2 <- get_nls(velo_data2, vmax = Vmax2, km = Km2)
         velo_data$name <- 'Reference'
-        velo_data2$name <- 'Tested Sample'
+        velo_data2$name <- 'Test Sample'
         vd <- rbind(velo_data, velo_data2)
         plot <- show_mm_plots_layout(velocity_data = vd,
                                      nls_models = list('Reference' = model,
-                                                       'Tested Sample' = model2))
+                                                       'Test Sample' = model2))
     }
     
     plot

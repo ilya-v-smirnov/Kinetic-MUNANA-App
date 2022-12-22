@@ -1,5 +1,5 @@
 
-
+# library(nlme)
 library(ggplot2)
 library(stringr)
 
@@ -206,6 +206,18 @@ read_sample_table <- function(path) {
     if (all(is.na(df$substrate_conc))) stop('substrate_conc column is empty!')
     df$name <- factor(df$name, levels = unique(df$name))
     df[, col_names_ref]
+}
+
+
+read_velo_tables <- function(files) {
+    if (is.null(files)) return()
+    table <- data.frame()
+    for (f in files) {
+        new <- read_table(f)
+        new$file <- basename(f)
+        table <- rbind(table, new)
+    }
+    table
 }
 
 
@@ -505,6 +517,8 @@ model_progress_curves <- function(assay) {
 }
 
 
+######## CALCULATION OF NON-LINEAR MODELS ########
+
 # Makes initial guess of Vmax and Km values based on linear regression.
 # velocity_data : data.frame containing coefficients from quadratic regression model;
 # return : numeric vector of length 2 containing estimates of Vmax and Km.
@@ -636,6 +650,64 @@ compare_vmax_km <- function(velo_data, vmax_km_data,
     return(list(Vmax = Vmax_table,
                 Km = Km_table))
 }
+
+
+######## NLME MODELS ########
+
+# Michaelis-Mentent equation.
+# The function necessary for self-starting nls models.
+# Vmax : numeric, Vmax value;
+# Km   : numeric, Km value;
+# substrate_conc : numeric, substrate concentration;
+# return : numeric, reaction velocity.
+mm <- function(Vmax, Km, substrate_conc) {
+    Vmax * substrate_conc / (Km + substrate_conc)
+}
+
+
+# Returns initial guesses of MM equation parameters necessary for
+# self-starting nls models.
+# Supplementrary function.
+mmInit <- function(mCall, data, LHS, ...) {
+    if (class(data) == 'list') {
+        velo <- data[[LHS]]
+        substrate_conc <- data[['substrate_conc']]
+    } else {
+        velo <- data[, as.character(LHS)]
+        substrate_conc <- data[, 'substrate_conc']
+    }
+    vmax_km <- guess_vmax_km(data.frame(b = velo,
+                                        substrate_conc = substrate_conc))
+    names(vmax_km) <- mCall[c('Vmax', 'Km')]
+    return(vmax_km)
+}
+
+
+# # Self-starting function for fitting Michaelis-Mentent equation.
+# mm <- selfStart(mm, initial =  mmInit, parameters = c('Vmax', 'Km'))
+# 
+# 
+# # Returns starting Vmax and Km values necessary for nlme models.
+# # data : data.frame containing the following columns: 'name', 'b', and 'substrate_conc';
+# # return : numeric, vector containing initial guesses for Vmax and Km.
+# get_multi_start_values <- function(data) {
+#     models <- nlsList(b ~ mm(Vmax, Km, substrate_conc) | name, data = data)
+#     c(as.matrix(coef(models)))
+# }
+# 
+# 
+# get_nlme_model <- function(data, starting_values, ref_sample) {
+#     data$name <- factor(data$name)
+#     data$name <- relevel(data$name, ref_sample)
+#     data$rep <- factor(data$rep)
+#     nlme(b ~ mm(Vmax, Km, substrate_conc),
+#          data = data,
+#          fixed = Vmax + Km ~ name,
+#          random = Vmax + Km ~ 1| rep,
+#          na.action = na.pass,
+#          start = starting_values,
+#          method = 'REML')
+# }
 
 
 ######## DATA VISUALISATION ########
@@ -1024,5 +1096,16 @@ show_km_vmax <- function(data, show_error_bars = TRUE) {
 # show_mm_plot(models[models$name == 'PR8 virus',])
 # show_mm_plot(models[models$name == 'PR8 virus',], nls_model)
 
-
-
+# 
+# velo_df <- read.csv('D:/Google Drive/Gothenburg University/Publications/MUNANA/MUNANA Data/velocities.csv', sep = ';', dec =',')
+# 
+# df2 <- subset(velo_df, select = c(name, b, substrate_conc, rep))
+# # df2$name <- factor(df2$name) #!!
+# # df2$rep <- factor(df2$rep)   #!!
+# 
+# 
+# start <- get_multi_start_values(df2)
+# 
+# get_nlme_model(df2, start, 'IgG')
+# 
+# 
