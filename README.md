@@ -19,12 +19,12 @@ All plots and data could be saved into a MS Word file or exported as an Excel ta
 
 ## Table of Contents
 
-- [Features]
-- [Getting Started]
-  - [Prerequisites]
-  - [Installation]
-- [Contributing]
-- [License]
+- Features
+- Getting Started
+  - Prerequisites
+  - Installation
+- Contributing
+- License
 
 
 ## Features
