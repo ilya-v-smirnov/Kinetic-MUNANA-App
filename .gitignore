@@ -5,3 +5,6 @@ run.r.Rout
 
 # Bat files
 *.bat
+
+# Test files
+test.R

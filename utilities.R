@@ -1,10 +1,6 @@
 
 library(reshape2)
 
-# path <- 'D:/R projects/Kinetic-MUNANA-App/'
-# setwd(path)
-# source('./MUNANA2.R')
-
 
 calculate_bright_diff <- function(path) {
     
@@ -47,6 +43,7 @@ calculate_bright_diff <- function(path) {
                 figure = fig))
 }
 
+
 save_brightdiff_template <- function(path) {
     df <- data.frame(conc = '',
                      substrate = '',
@@ -55,7 +52,6 @@ save_brightdiff_template <- function(path) {
     save_table(df, path, open_file = FALSE)
 }
 
-# calculate_bright_diff('./Sample Data Sets/4-MU vs MUNANA/4-MU vs MUNANA.xlsx')
 
 spectrum_analysis <- function(path,
                               show_points = FALSE,
@@ -72,7 +68,8 @@ spectrum_analysis <- function(path,
     
     NC <- aggregate(buffer ~ wavelength, data, geo_mean)
     
-    RFUdata <- melt(subset(data, select = -buffer), id.vars = 'wavelength', variable.name = 'type', value.name = 'RFU')
+    RFUdata <- melt(subset(data, select = -buffer), id.vars = 'wavelength',
+                    variable.name = 'type', value.name = 'RFU')
     RFUdata <- merge(RFUdata, NC, by = 'wavelength')
     RFUdata$RFU <- RFUdata$RFU - RFUdata$buffer
     product <- aggregate(RFU ~ wavelength,  RFUdata, subset = type == 'product', geo_mean)
@@ -105,8 +102,6 @@ spectrum_analysis <- function(path,
                 figure = fig))
 }
 
-# spectrum_analysis('./Sample Data Sets/4-MU and MUNANA spectra/4-MU and MUNANA spectra.xlsx', show_points = T, log_scale = T, add_band = T, bandwidth = 1)
-
 
 save_spectrum_template <- function(path) {
     df <- data.frame(wavelength = '',
@@ -117,11 +112,9 @@ save_spectrum_template <- function(path) {
 }
 
 
-# Generates a sequence of substrate concentrations based on starting concentration and titration step
-
 substrate_titration <- function(start, step, n_steps = 8) signif(start/step^(0:(n_steps - 1)), 3)
 
- 
+
 show_modelling_plot <- function(start_conc, titr_step, n_steps = 8, 
                       Km1, Vmax1,
                       Km2 = NA, Vmax2 = NA,
@@ -157,5 +150,3 @@ show_modelling_plot <- function(start_conc, titr_step, n_steps = 8,
     plot
 }
 
-
-# show_modelling_plot(100, n_steps = 5, titr_step = 2, Km1 = 12, Vmax1 = 0.3, Km2 = 22, Vmax2 = 0.6, error_sd = 0.0001)

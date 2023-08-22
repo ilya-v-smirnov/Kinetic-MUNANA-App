@@ -1,8 +1,6 @@
 
 library(shiny)
 
-# path <- 'D:/R projects/Kinetic-MUNANA-App/'
-# setwd(path)
 
 source('./MUNANA2.R')
 source('./report.R')
