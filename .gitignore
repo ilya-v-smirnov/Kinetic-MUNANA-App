@@ -2,6 +2,7 @@
 # Temporary R files
 .Rhistory
 run.r.Rout
+.Rproj.user/
 
 # Bat files
 *.bat
