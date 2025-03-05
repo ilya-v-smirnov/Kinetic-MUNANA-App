@@ -506,7 +506,9 @@ ui <- fluidPage(title = 'Kinetic MUNANA App',
                                          h3('Gothenburg,\nSweden\n2021'),
                                          width = 2),
                             mainPanel(br(), br(), br(),
-                                      h4("This application was designed by Ilya Smirnov, a postdoc in Davide Angeletti's group."),
+                                      h4("This application was designed by Ilya Smirnov, a postdoc in Davide Angeletti's group."), br(),
+                                      h4('The source code for this App is published in my GitHub page:'),
+                                      h4(a('https://github.com/ilya-v-smirnov/Kinetic-MUNANA-App', href = 'https://github.com/ilya-v-smirnov/Kinetic-MUNANA-App*')), br(),
                                       h4('Please, report problems or suggestions for improvement by email:'),
                                       h4(a('davide.angeletti@gu.se', href='mailto:davide.angeletti@gu.se'),
                                          ' or ',
@@ -1078,27 +1080,6 @@ server <- function(input, output, session) {
     )
     
     ###### UTILITIES ######
-    
-    #### EXPERIMENT STATISTICS ####
-    # 
-    # exp_stat_view <- reactive({
-    #     view <-
-    #     switch (input$stat_appr,
-    #         'nlme' = wellPanel(
-    #             fileInput('nlme_files', label = 'Select velocity data files', multiple = TRUE, accept = c('.csv', '.xlsx'))
-    #             
-    #         ),
-    #         'anova' = wellPanel()
-    #     )
-    #     nlme_files <- input$nlme_files
-    #     print(read_velo_tables(nlme_files$datapath))
-    #     view
-    # })
-    # 
-    # output$exp_stat_win <- renderUI({
-    #     exp_stat_view()
-    # })
-    
     
     #### BRIGHTNESS DIFFERENCE ####
     

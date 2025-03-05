@@ -1,36 +1,41 @@
 
-# library(nlme)
 library(ggplot2)
 library(stringr)
 
+####################### READING AND WRITING TABLES #############################
 
-######## READING AND WRITING TABLES ########
-
-
-# Converts time to numeric vector representing time in minutes.
-# x : numeric vector, time values in POSIXct format;
-# format : character of length 1, time format of x vector:
-#       'excel' : MS Excel format where time is represented as a fraction of a day,
-#       'sec'   : time in seconds,
-#       'min'   : time in minutes,
-#       'hour'  : time in hours;
-# return : numeric vector, time points of measurements.
+#' Convert Time Values to Minutes
+#'
+#' This function converts a numeric time vector into minutes. The input time can be
+#' in one of several formats:
+#'   - "excel": Time is represented as a fraction of a day (typical in MS Excel)
+#'   - "sec": Time is given in seconds
+#'   - "min": Time is already in minutes
+#'   - "hour": Time is given in hours
+#'
+#' @param x Numeric vector of time values.
+#' @param format Character string of length 1 specifying the format of x.
+#' @return Numeric vector where each element is the time in minutes.
 
 time_to_min <- function(x, format = 'excel') {
-    switch (format,
-            'excel' = return(round(x * 1440, 3)),
-            'sec' = return(x / 60),
-            'min' = return(x),
-            'hour' = return(x * 60)
-    )
+    switch(format,
+           'excel' = return(round(x * 1440, 3)),  # 1 day = 1440 minutes
+           'sec'   = return(x / 60),
+           'min'   = return(x),
+           'hour'  = return(x * 60))
 }
 
 
-# Generates well names of 96-well plate.
-# columns : integer vector, column numbers of wells to generate;
-# return : character vector, well names.
+#' Generate 96-Well Plate Names
+#'
+#' This function returns a character vector of well names for a standard 96-well plate.
+#' Each well is designated by a letter (rows A–H) and a column number.
+#'
+#' @param columns Integer vector indicating which columns to generate (default: 1:12).
+#' @return Character vector of well names (e.g., "A1", "B1", …, "H12").
 
 generate_well_names <- function(columns = 1:12) {
+    # Ensure columns are integers
     if (! is.integer(columns)) columns <- as.integer(columns)
     if (min(columns) < 1) stop('Column number cannot be less than 1')
     if (max(columns) > 12) stop('Column number cannot be larger than 12!')
@@ -40,48 +45,50 @@ generate_well_names <- function(columns = 1:12) {
 }
 
 
-# Reads .csv or .xlsx files. Automatically determines file format by extention.
-# Reads MS Excel csv dialect.
-# path: character, path to the file to read;
-# return : data.frame, table content.
+#' Read Table from File (CSV or XLSX)
+#'
+#' This function reads a table from a file, automatically detecting the file type by
+#' its extension. For CSV files, it assumes the MS Excel dialect (semicolon-separated,
+#' comma as decimal separator).
+#'
+#' @param path Character string representing the path to the file.
+#' @return A data.frame with the contents of the file.
 
 read_table <- function(path) {
     if (!file.exists(path)) stop('File not found!')
-        if (endsWith(path, '.csv')) {
-            df <- read.csv(path, sep = ';', dec = ',')
-        } else if(endsWith(path, '.xlsx'))
-            df <- openxlsx::read.xlsx(path)
-        else {
-            stop('Check file format!')
-        }
+    if (endsWith(path, '.csv')) {
+        df <- read.csv(path, sep = ';', dec = ',')
+    } else if (endsWith(path, '.xlsx')) {
+        df <- openxlsx::read.xlsx(path)
+    } else {
+        stop('Check file format!')
+    }
     df
 }
 
 
-# Reads RFU data from a .csv or .xlsx file.
-# Reading table should contain
-#       - Time column (from capital T),
-#       - columns with RFU data titled by the name of corresponding wells.
-# The function checks the the following criteria of the file:
-#       - the presence of Time column;
-#       - the presence of at least on well column.
-# Any non-numeric values in well columns are deprecated. Corresponding message
-# is sent to console.
-# path : character, path to the file;
-# time_format: character, see description of time_to_min function.
-# return : data.frame, long-format table with 3 columns:
-#       - well, well name;
-#       - Time, in min;
-#       - RFU, numeric.
+#' Read RFU Data from a Table File
+#'
+#' Reads RFU (Relative Fluorescence Units) data from a CSV or XLSX file. The file must
+#' contain a "Time" column and one or more columns with well names (e.g., "A1", "B2", etc.).
+#' The function validates the presence of these columns, melts the data into long format,
+#' converts time to minutes, and filters out non-numeric RFU values.
+#'
+#' @param path Character string, path to the file.
+#' @param time_format Character specifying the time format ("excel", "sec", "min", "hour").
+#' @return A data.frame in long format with columns:
+#'         - well: Well name.
+#'         - Time: Time in minutes.
+#'         - RFU: Numeric RFU value.
 
 read_RFU_data_table <- function(path, time_format = 'excel') {
-    # Required parameters:
+    # Define valid well names for a 96-well plate.
     wells <- generate_well_names()
-    # Loading table
+    # Load data table from file.
     df <- read_table(path)
     if (! 'Time' %in% names(df)) stop('Time column missing!')
-    # Selecting used wells
-    nrows <- dim(df)[1]
+    
+    # Identify well columns that contain data (non-NA values).
     wells_used <- character(0)
     for (w in wells) {
         if (w %in% names(df)) {
@@ -91,15 +98,17 @@ read_RFU_data_table <- function(path, time_format = 'excel') {
         }
     }
     if (length(wells_used) == 0) stop('No well with RFU data found!')
-    # Melting df
+    
+    # Melt the data frame to long format.
     molten_df <- reshape2::melt(df[, c('Time', wells_used)],
                                 id.vars = c('Time'),
                                 variable.name = 'well',
                                 value.name = 'RFU')
-    # Time formatting
+    # Convert time values to minutes.
     molten_df$Time <- time_to_min(molten_df$Time, time_format)
-    # Removing non-numeric values
-    nrows <- dim(molten_df)[1]
+    
+    # Convert RFU values to numeric, reporting any non-numeric entries.
+    nrows <- nrow(molten_df)
     RFU <- numeric(nrows)
     for (i in 1:nrows) {
         val <- molten_df$RFU[i]
@@ -124,48 +133,41 @@ read_RFU_data_table <- function(path, time_format = 'excel') {
 }
 
 
-# Reads a .csv or .xlsx file with standard data.
-# Reading table should contain:
-#       - well column, containing well names (like A1, B2, etc.);
-#       - type column, containing type of sample present in wells,
-#         should be either 'standard' for wells with known reaction product concentration,
-#         or 'NC' for wells containing working buffer only;
-#       - conc column, containing concentration of standard (in uM) in corresponding wells.
-# Any other column depricated.
-# The function checks the the following criteria of the file:
-#       - the presence of all required columns;
-#       - correctness of well names;
-#       - correctness of type column values, should be at least one NC well;
-#       - correctness of conc column filling: the presence of numeric values differing from 0.
-# path : character, path to the file;
-# return : data.frame, long-format table with 3 columns:
-#       - well, well name;
-#       - type, sample types (see above);
-#       - conc, standard concentrations (in uM).
+#' Read Standard Data Table
+#'
+#' Reads a file containing standard data for calibration. The input table must include:
+#'   - well: Well names (e.g., "A1", "B2").
+#'   - type: Sample type, either "standard" (with known concentration) or "NC" (no
+#'     concentration, blank).
+#'   - conc: Numeric standard concentration (in µM).
+#' The function validates column presence, well name correctness, and that at least one NC
+#' well is present, along with valid numeric concentrations.
+#'
+#' @param path Character string, path to the file.
+#' @return A data.frame with columns: well, type, and conc.
 
 read_standard_table <- function(path) {
-    # Required parameters:
+    # Reference column names, allowed type values, and valid well names.
     col_names_ref <- c('well', 'type', 'conc')
     type_value_ref <- c('standard', 'NC')
     well_names_ref <- generate_well_names()
-    # Loading table
+    # Load table.
     df <- read_table(path)
-    # Checking column names
-    col_names <- names(df)
+    
+    # Validate presence of required columns.
     for (cnr in col_names_ref) {
-        if (! cnr %in% col_names_ref) stop(paste('Column', cnr, 'missing!'))
+        if (! cnr %in% names(df)) stop(paste('Column', cnr, 'missing!'))
     }
-    # Checking well names
+    # Validate that all well names in the file are correct.
     well_names <- unique(df$well)
     for (wn in well_names) {
         if (! wn %in% well_names_ref) stop(paste('Incorrect well name:', wn))
     }
-    # Checking type column
+    # Validate that type column contains only permitted values.
     for (tv in unique(df$type)) {
         if (! tv %in% type_value_ref) stop(paste('Incorrect value in type column:', tv))
     }
-    
-    # Checking conc column
+    # Validate concentration column.
     if (! is.numeric(df$conc)) stop('Conc column contains non-numeric values')
     if (all(df$conc == 0)) stop('Conc column is empty!')
     if (all(is.na(df$conc))) stop('Conc column is empty!')
@@ -173,59 +175,49 @@ read_standard_table <- function(path) {
 }
 
 
-# Reads a .csv or .xlsx file with sample data.
-# Reading table should contain:
-#       - well column, containing well names (like A1, B2, etc.);
-#       - name column, sample name; should be identical for wells representing one sample;;
-#       - substrate_conc column, containing concentration of standard (in uM) in corresponding wells.
-# Any other column depricated.
-# The function checks the the following criteria of the file:
-#       - the presence of all required columns;
-#       - correctness of well names;
-#       - correctness of substrate+conc column filling: the presence of numeric values differing from 0.
-# path : character, path to the file;
-# return : data.frame, long-format table with 3 columns:
-#       - well, well name;
-#       - name, sample names (see above);
-#       - substrate_conc, standard concentrations (in uM).
+#' Read Sample Data Table
+#'
+#' Reads a file with sample information. The table must contain:
+#'   - well: Well names.
+#'   - name: Sample name (should be the same for replicate wells).
+#'   - substrate_conc: Numeric substrate concentration (in µM).
+#' The function validates well names and substrate concentration values.
+#'
+#' @param path Character string, path to the file.
+#' @return A data.frame with columns: well, name, and substrate_conc.
 
 read_sample_table <- function(path) {
-    # Required parameters:
+    # Reference required column names and valid well names.
     col_names_ref <- c('well', 'name', 'substrate_conc')
     well_names_ref <- generate_well_names()
-    # Loading table
+    # Load table.
     df <- read_table(path)
-    # Checking well names
+    
+    # Validate well names.
     well_names <- unique(df$well)
     for (wn in well_names) {
         if (! wn %in% well_names_ref) stop(paste('Incorrect well name:', wn))
     }
-    # Checking substrate_conc column
+    # Validate substrate concentration column.
     if (! is.numeric(df$substrate_conc)) stop('substrate_conc column contains non-numeric values')
     if (all(df$substrate_conc == 0)) stop('substrate_conc column is empty!')
     if (all(is.na(df$substrate_conc))) stop('substrate_conc column is empty!')
+    
+    # Ensure sample names are factors with levels in order of appearance.
     df$name <- factor(df$name, levels = unique(df$name))
     df[, col_names_ref]
 }
 
 
-read_velo_tables <- function(files) {
-    if (is.null(files)) return()
-    table <- data.frame()
-    for (f in files) {
-        new <- read_table(f)
-        new$file <- basename(f)
-        table <- rbind(table, new)
-    }
-    table
-}
-
-
-# Saves a table into xlsx file.
-# x : data.frame, tabe to save;
-# path : character, a path to a new file;
-# open_file : logical, should the file to be open automatically after saving.
-# return : NULL
+#' Save a Data Table to an XLSX File
+#'
+#' Saves a given data.frame as an XLSX file at the specified path. Optionally, the file
+#' can be opened immediately after saving.
+#'
+#' @param x Data.frame to be saved.
+#' @param path Character string specifying the file path for the new XLSX file.
+#' @param open_file Logical indicating whether to automatically open the file after saving.
+#' @return NULL
 
 save_table <- function(x, path, open_file = TRUE) {
     xlsx::write.xlsx(x, path, row.names = FALSE)
@@ -233,11 +225,14 @@ save_table <- function(x, path, open_file = TRUE) {
 }
 
 
-# Saves a template table describing standard positions in a 96-well plate and product concentrations.
-# path : character, a path to a new file;
-# columns : integer, a vector containing columns number used for standard (ranges from 1 to 12);
-# open_file : logical, should the file to be open automatically after saving.
-# return : NULL
+#' Save Standard Template Table for a 96-Well Plate
+#'
+#' Creates and saves a template XLSX file describing standard positions and product concentrations.
+#'
+#' @param path Character string, file path for the new template.
+#' @param columns Integer vector of column numbers (1 to 12) used for standards.
+#' @param open_file Logical indicating whether to automatically open the file after saving.
+#' @return NULL
 
 save_standard_template <- function(path, columns, open_file = TRUE) {
     len <- length(columns)
@@ -249,11 +244,14 @@ save_standard_template <- function(path, columns, open_file = TRUE) {
 }
 
 
-# Saves a template table describing sample positions in a 96-well plate.
-# path : character, a path to a new file;
-# columns : integer, a vector containing columns number used for standard (ranges from 1 to 12);
-# open_file : logical, should the file to be open automatically after saving.
-# return : NULL
+#' Save Sample Template Table for a 96-Well Plate
+#'
+#' Creates and saves a template XLSX file describing sample positions.
+#'
+#' @param path Character string, file path for the new template.
+#' @param columns Integer vector of column numbers (1 to 12) used for samples.
+#' @param open_file Logical indicating whether to automatically open the file after saving.
+#' @return NULL
 
 save_sample_template <- function(path, columns, open_file = TRUE) {
     len <- length(columns)
@@ -265,38 +263,48 @@ save_sample_template <- function(path, columns, open_file = TRUE) {
 }
 
 
-# Saves a template table for optical data obtained in an experiment.
-# path : character, a path to a new file;
-# columns : integer, a vector containing columns number used for standard (ranges from 1 to 12);
-# open_file : logical, should the file to be open automatically after saving.
-# return : NULL
+#' Save RFU Template Table for Optical Data
+#'
+#' Creates and saves a template XLSX file for optical data measured in an experiment.
+#'
+#' @param path Character string, file path for the new template.
+#' @param columns Integer vector of column numbers to include (default: 1 to 12).
+#' @param open_file Logical indicating whether to automatically open the file after saving.
+#' @return NULL
 
 save_RFU_template <- function(path, columns = 1:12, open_file = TRUE) {
     len <- length(columns)
     if (len == 0 | len > 12) stop('Incorrect columns value!')
     col_names <- c('Time', generate_well_names(columns))
-    df <- data.frame(matrix('', ncol = 8*len + 1, nrow = 1))
+    df <- data.frame(matrix('', ncol = 8 * len + 1, nrow = 1))
     colnames(df) <- col_names
     save_table(df, path, open_file)
 }
 
 
-######## CALCULATION OF LINEAR MODELS ########
+################### CALCULATION OF LINEAR MODELS ###############################
 
-# Calculates geometic mean.
-# x : numeric vector, values to calculate geometric mean
-# return : numeric, geometric mean.
+#' Calculate the Geometric Mean
+#'
+#' Computes the geometric mean of a numeric vector using base-10 logarithms.
+#'
+#' @param x Numeric vector.
+#' @return Numeric value representing the geometric mean.
 
 geo_mean <- function(x) 10^mean(log10(x), na.rm = TRUE)
 
 
-# Returns a data.frame containing background signal at each time point
-# of the assay.
-# std_data : data.frame containing standard data (see read_standard_table function);
-# RFU_data : data.frame containing RFU data.
-# return : data.frame, table containig two columns:
-#       - Time, time since the begining of the assay, in min;
-#       - RFU, value of background signal.
+#' Extract Background (NC) Data
+#'
+#' Calculates the background signal at each time point based on NC (negative control)
+#' standard wells. It merges standard and RFU data, computes the geometric mean per time point,
+#' and returns an ordered data.frame.
+#'
+#' @param std_data Data.frame with standard data (see read_standard_table).
+#' @param RFU_data Data.frame with RFU measurements.
+#' @return Data.frame with columns:
+#'         - Time: Measurement time (in minutes).
+#'         - RFU: Background signal.
 
 get_NC_data <- function(std_data, RFU_data) {
     NC <- subset(std_data, type == 'NC')
@@ -306,19 +314,22 @@ get_NC_data <- function(std_data, RFU_data) {
 }
 
 
-# Returns linear models to calibrate the assay at every time point.
-# std_data : data.frame containing standard data (see read_standard_table function);
-# RFU_data : data.frame containing RFU data  (see read_RFU_data_table() function);
-# method : character, method of data transformation prior calibration:
-#       - 'linear', no transformation is applied;
-#       - 'log-linear', dependent and independent variables are log-transformed
-#          before caclulation of linear regression.
-# return : list, processed standard data; 
-#       $method, method of data transformation;
-#       $std_invdividual_data, data.frame containing optical from individual wells,
-#       $std_averaged_data, data.frame containing geometrical means of signals obtained from
-#        technical replicas of the standard;
-#       $models, list of lm objects, names of the list correspond to time points of the assay.
+#' Compute Calibration Models for the Assay
+#'
+#' This function calibrates the assay by fitting linear models at each time point. It first
+#' extracts the background signal (NC), adjusts the RFU data by subtracting the background,
+#' aggregates standard data using the geometric mean, and then fits either a log-linear or
+#' linear model at each time point.
+#'
+#' @param std_data Data.frame with standard data (from read_standard_table).
+#' @param RFU_data Data.frame with RFU measurements (from read_RFU_data_table).
+#' @param method Character specifying the transformation method:
+#'        "linear" (no transformation) or "log-linear" (log10-transformation of both variables).
+#' @return A list containing:
+#'         - method: The method used.
+#'         - std_individual_data: Raw data from individual wells.
+#'         - std_averaged_data: Geometric means for technical replicates.
+#'         - models: A named list of lm objects for each time point.
 
 get_calibration <- function(std_data, RFU_data, method = 'log-linear') {
     get_loglinear_model <- function(time_point) {
@@ -335,9 +346,9 @@ get_calibration <- function(std_data, RFU_data, method = 'log-linear') {
     std_aggr <- aggregate(RFU ~ conc + Time, std, geo_mean)
     time_points <- sort(unique(NC$Time))
     models <- switch(method,
-        'log-linear' = lapply(time_points, get_loglinear_model),
-        'linear' = lapply(time_points, get_linear_model),
-        stop(paste('Wrong method value:', method)))
+                     'log-linear' = lapply(time_points, get_loglinear_model),
+                     'linear' = lapply(time_points, get_linear_model),
+                     stop(paste('Wrong method value:', method)))
     names(models) <- time_points
     list(method = method,
          std_individual_data = std[, c('Time', 'well', 'conc', 'RFU')],
@@ -346,19 +357,23 @@ get_calibration <- function(std_data, RFU_data, method = 'log-linear') {
 }
 
 
-# Builds progress curves based on RFU data using calibrating models.
-# sample_data : data.frame, containing sample description (see read_sample_data() function);
-# RFU_data : data.frame containing RFU data (see read_RFU_data_table() function);
-# NC_data : data.frame containing background values for each time point (see
-#           get_NC_data() function);
-# calib : list with calibrating lm models (see get_calibration() function).
-# Technical repliations are averaged by applying geo_mean() function.
-# returns : data.frame containing following columns:
-#       - Time, time since the beginning of the assay in minutes;
-#       - well, well names;
-#       - name, names of samples;
-#       - substrate_conc, concentration of the substrate (in uM);
-#       - conc, calculated concentration of reaction product in uM.
+#' Generate Progress Curves Based on Calibration Models
+#'
+#' Constructs progress curves by applying calibration models to sample data. It merges the sample
+#' information with RFU measurements and background signal (NC), subtracts the background,
+#' and then calculates the product concentration for each time point using the corresponding model.
+#'
+#' @param sample_data Data.frame containing sample descriptions (from read_sample_table).
+#' @param RFU_data Data.frame with RFU measurements.
+#' @param NC_data Data.frame with background (NC) signal.
+#' @param calib List with calibration models (from get_calibration).
+#' @return Data.frame with columns:
+#'         - Time: Measurement time (minutes).
+#'         - well: Well name.
+#'         - name: Sample name.
+#'         - substrate_conc: Substrate concentration (µM).
+#'         - RFU: Adjusted optical measurement.
+#'         - conc: Calculated product concentration (µM).
 
 get_progress_curves <- function(sample_data, RFU_data, NC_data, calib) {
     samples <- merge(sample_data, RFU_data, by = 'well')
@@ -368,21 +383,22 @@ get_progress_curves <- function(sample_data, RFU_data, NC_data, calib) {
     for (tp in names(calib$models)) {
         smpl_tp <- subset(samples, Time == as.numeric(tp))
         smpl_tp$conc <- switch (calib$method,
-            'log-linear' = 10^predict(calib$models[[tp]], smpl_tp),
-            'linear' = predict(calib$models[[tp]], smpl_tp))
+                                'log-linear' = 10^predict(calib$models[[tp]], smpl_tp),
+                                'linear' = predict(calib$models[[tp]], smpl_tp))
         df <- rbind(df, smpl_tp)
     }
     df[, c('Time', 'well', 'name', 'substrate_conc', 'RFU', 'conc')]
 }
 
 
-# Replaceces conc column in progress curved data.frame
-# by corrected concentration values.
-# progress_data : data.frame, containing progress curves data;
-# the data.frame should contain column substrate_conc;
-# bright : numeric, fold difference in brightness between the substrate and
-#          the product of the reaction.
-# return : data.frame, containing corrected values in conc column.
+#' Correct Concentration Values in Progress Curve Data
+#'
+#' Adjusts the calculated product concentrations using a brightness correction factor.
+#' The formula accounts for the difference in brightness between the substrate and product.
+#'
+#' @param progress_data Data.frame containing progress curves; must include substrate_conc.
+#' @param bright Numeric brightness factor (fold difference).
+#' @return Data.frame with the corrected conc column.
 
 correct_conc <- function(progress_data, bright) {
     progress_data$conc <- with(progress_data, (conc * bright - substrate_conc) / (bright - 1))
@@ -390,10 +406,13 @@ correct_conc <- function(progress_data, bright) {
 }
 
 
-# Returns key parameters of linear regression model:
-# intercept, slope, and R squared.
-# model : lm object, linear model;
-# return : data.frame, linear regression model parameters.
+#' Extract Key Linear Regression Parameters
+#'
+#' Retrieves the intercept, slope, and R-squared value from a linear regression model.
+#'
+#' @param model An lm object.
+#' @return Data.frame with columns: inter (intercept), slope (slope),
+#'         and Rsq (R-squared).
 
 get_slope_int_Rsq <- function(model) {
     inter <- coef(model)[1]
@@ -405,11 +424,14 @@ get_slope_int_Rsq <- function(model) {
 }
 
 
-# Returns key parameters of linear or quadric regression model:
-# a, b, and c (coefficents of quadric and linear components,
-# and intercept, respectively).
-# model : lm object, quadric model.
-# return : data.frame, quadric regression model parameters.
+#' Extract Coefficients from a Quadratic Regression Model
+#'
+#' For a quadratic (or linear) model, extracts coefficients a, b, and c. For a quadratic model,
+#' a is the coefficient of the squared term, b is the coefficient of the linear term, and c is the intercept.
+#' For a linear model (when quadratic term is absent), a is set to NA.
+#'
+#' @param model An lm object.
+#' @return Data.frame with columns: a, b, c, and Rsq (R-squared).
 
 get_abc_Rsq <- function(model) {
     coefs <- coef(model)
@@ -430,42 +452,23 @@ get_abc_Rsq <- function(model) {
 }
 
 
-
-# Calculates progress curves based on raw data provided as .csv or .xlsx tables.
-# standard_table : character, path to a file containing standard table;
-# sample_table : character, path to a file containing description of samples;
-# RFU_table : character, path to a file with optical data;
-# time_format : character, time format used in file with optical data;
-#       'excel' : MS Excel format where time is represented as a fraction of a day,
-#       'sec'   : time in seconds,
-#       'min'   : time in minutes,
-#       'hour'  : time in hours;
-# calibration_method : chatacter, method of data transformation prior calibration:
-#       - 'linear', no transformation is applied;
-#       - 'log-linear', dependent and independent variables are log-transformed
-#          before caclulation of linear regression;
-# bright : numeric, fold difference in brightness between the substrate and
-#          the product of the reaction; if NULL, no correction is applied to the data.
-# return : list, containing assay data:
-# $NC_data : data.frame, background levels throughout the assay:
-#            Time, time point of the measurement in minuntes,
-#            RFU, level of blank signal.
-# $standard_data_indiv : data.frame, calibration data from individual wells:
-#            Time, time point of the measurement in minuntes;
-#            well, well name;
-#            conc, concentration of the standard in individual wells;
-#            RFU, optical data;
-# $standard_data_averaged : data.frame, similar to the previuos data.frame,
-#            except geometrical means are provided form technical replicas of the standard;
-# $calibration_pars : data.frame, containing linear regression parameters (intercept, slope, and
-#            R squared) of standard titration for each time point (provided as row.names);
-# $progress_curves : data.frame containing progress curves data:
-#            Time, time point of the measurement in minuntes;
-#            well, well names;
-#            name, sample names;
-#            substrate_conc, concentration of substrate (in uM);
-#            RFU, optical data from samples;
-#            conc, product concentration (in uM).
+#' Run Complete Assay Analysis
+#'
+#' This function orchestrates the entire assay workflow: it reads the standard data,
+#' computes the background (NC) signal, fits calibration models, calculates progress curves,
+#' and optionally applies a brightness correction.
+#'
+#' @param standard_data Data.frame with standard information (from read_standard_table).
+#' @param sample_data Data.frame with sample descriptions (from read_sample_table).
+#' @param RFU_data Data.frame with optical measurements (from read_RFU_data_table).
+#' @param calibration_method Character indicating calibration transformation ("linear" or "log-linear").
+#' @param bright Numeric brightness factor for correction; if NULL, no correction is applied.
+#' @return A list containing:
+#'         - NC_data: Background signal data.
+#'         - standard_data_indiv: Raw standard data from individual wells.
+#'         - standard_data_averaged: Aggregated standard data (geometric means).
+#'         - calibration_pars: Calibration parameters for each time point.
+#'         - progress_curves: Calculated progress curves.
 
 assay <- function(standard_data,
                   sample_data,
@@ -493,14 +496,19 @@ assay <- function(standard_data,
 }
 
 
-# Fits quadratic regression models to progress curve data.
-# assay : list containing progress_curve data (returned by assay()).
-# return : data.frame containing model's coefficients and R squared.
+#' Fit Quadratic Regression Models to Progress Curve Data
+#'
+#' For each unique sample (identified by name, substrate_conc, and well),
+#' this function fits a quadratic model to the progress curve data. If the quadratic term is
+#' significantly positive (p-value < 0.01), it switches to a simpler linear model.
+#'
+#' @param assay A list containing progress curve data (returned by assay()).
+#' @return Data.frame with regression coefficients and R-squared values for each sample.
 
 model_progress_curves <- function(assay) {
     df <- dplyr::distinct(assay$progress_curves, well, name, substrate_conc)
     result <- data.frame()
-    for (i in 1:dim(df)[1]) {
+    for (i in 1:nrow(df)) {
         sub_data <- subset(assay$progress_curves,
                            name == df$name[i] & substrate_conc == df$substrate_conc[i] & well == df$well[i])
         fit <- lm(conc ~ I(Time^2) + Time, sub_data)
@@ -513,18 +521,22 @@ model_progress_curves <- function(assay) {
         pars <- cbind(df[i, ], get_abc_Rsq(fit))
         result <- rbind(result, pars)
     }
-    result[order(result$name, result$substrate_conc, decreasing = c(F, T), method = 'radix'),]
+    result[order(result$name, result$substrate_conc, decreasing = c(FALSE, TRUE), method = 'radix'), ]
 }
 
 
-######## CALCULATION OF NON-LINEAR MODELS ########
+#################### CALCULATION OF NON-LINEAR MODELS ##########################
 
-# Makes initial guess of Vmax and Km values based on linear regression.
-# velocity_data : data.frame containing coefficients from quadratic regression model;
-# return : numeric vector of length 2 containing estimates of Vmax and Km.
+#' Initial Guess for Vmax and Km
+#'
+#' Generates initial estimates for Vmax and Km based on a linear regression applied to
+#' the inverse of velocity data. These estimates are used to initialize nonlinear fitting.
+#'
+#' @param velocity_data Data.frame with a column b (velocity) and substrate_conc.
+#' @return Numeric vector of length 2 containing estimates for Vmax and Km.
 
 guess_vmax_km <- function(velocity_data) {
-    if (dim(velocity_data)[1] > 0) {
+    if (nrow(velocity_data) > 0) {
         model <- lm(1/b ~ I(1/substrate_conc), data = velocity_data)
         lin_coef <- coef(model)
         Vmax_guess <- as.numeric(1/lin_coef[1]) 
@@ -542,27 +554,35 @@ guess_vmax_km <- function(velocity_data) {
 }
 
 
-# Fits a nonlinear least squares model to velocity data returned by model_progress_curves() function
-# using Michaelis-Menten equation.
-# velocity_data : data.frame containing coefficients from quadratic regression model;
-# vmax : numeric, approximate Vmax value;
-# km : numeric, approximate Km value.
-# return : nls models or NULL if velocity_data has less then 3 rows.
+#' Fit Michaelis-Menten Model using Nonlinear Least Squares
+#'
+#' Fits a nonlinear least squares (nls) model to velocity data using the Michaelis-Menten equation.
+#'
+#' @param velocity_data Data.frame with velocity data (from model_progress_curves()).
+#' @param vmax Numeric initial guess for Vmax.
+#' @param km Numeric initial guess for Km.
+#' @return An nls model object or NULL if there are too few data points.
 
 get_nls <- function(velocity_data, vmax, km) {
     nls(b ~ Vmax * substrate_conc / (Km + substrate_conc),
         start = c(Vmax = vmax, Km = km),
-        data = velocity_data, trace = F)
+        data = velocity_data, trace = FALSE)
 }
 
 
-# Calculates statistical significance of changes in Vmax and Km based on Michaelis-Menten curves.
-# velo_data : data.frame containing velocity data;
-# vmax_km_data : data.frame containing estimates of Vmax and Km values;
-# ref_sample : character, name of the reference sample;
-# p.adjust_method : character, method of adjusting p-values for multiple comparisons. If 'no', no
-#       correction is implemented.
-# return : list of two data.frames containing statstical comparisons of Vmax and Km values.
+#' Compare Vmax and Km Values between Samples
+#'
+#' This function statistically compares Vmax and Km parameters from Michaelis-Menten fits
+#' between a reference sample and other samples. It fits a combined nonlinear model and
+#' extracts significance values (with optional p-value adjustment).
+#'
+#' @param velo_data Data.frame containing velocity data.
+#' @param vmax_km_data Data.frame with Vmax and Km estimates for each sample.
+#' @param ref_sample Character string, name of the reference sample.
+#' @param p.adjust_method Character specifying the p-value adjustment method (default: "bonferroni").
+#'        Use "no" to disable adjustment.
+#' @return A list with two data.frames containing comparisons for Vmax and Km.
+
 compare_vmax_km <- function(velo_data, vmax_km_data,
                             ref_sample, p.adjust_method = 'bonferroni') {
     
@@ -581,7 +601,7 @@ compare_vmax_km <- function(velo_data, vmax_km_data,
             start = c(Vmax0 = Vmax0, Vmax1 = Vmax1, Km0 = Km0, Km1 = Km1))
     }
     
-    
+    # Helper to convert p-values into significance stars.
     signif_stars <- function(pval) {
         sapply(pval, function(x) {
             if (is.na(x)) return('')
@@ -592,7 +612,6 @@ compare_vmax_km <- function(velo_data, vmax_km_data,
             return('***')
         })
     }
-    
     
     samples <- unique(vmax_km_data$name)
     vmax_km_data <- subset(vmax_km_data, select = c('name', 'Vmax', 'Km'))
@@ -610,15 +629,16 @@ compare_vmax_km <- function(velo_data, vmax_km_data,
                               Km0 = Km0, Km1 = Km1)
         mod_summary <- summary(model)
         summary_table <- as.data.frame(mod_summary$parameters, row.names = NULL)
-        # fold-change
+        # Compute fold-change relative to the reference sample.
         Vmax_fold <- Vmax1 / Vmax0
         Km_fold <- Km1 / Km0
-        # formatting
-        Vmax_line <- summary_table[2,]
+        # Format output for Vmax comparison.
+        Vmax_line <- summary_table[2, ]
         Vmax_line$name <- smpl
         Vmax_line$fold <- Vmax_fold
         Vmax_table <- rbind(Vmax_table, Vmax_line)
-        Km_line <- summary_table[4,]
+        # Format output for Km comparison.
+        Km_line <- summary_table[4, ]
         Km_line$name <- smpl
         Km_line$fold <- Km_fold
         Km_table <- rbind(Km_table, Km_line)
@@ -628,10 +648,8 @@ compare_vmax_km <- function(velo_data, vmax_km_data,
     Km_table <- Km_table[,  c(5, 1, 6, 4)]
     names(Vmax_table) <- c('name', 'change', 'fold', 'p.value')
     names(Km_table) <- c('name', 'change', 'fold', 'p.value')
-    Vmax_table <- merge(vmax_km_data[, c('name', 'Vmax')],
-                        Vmax_table, all = TRUE)
-    Km_table <- merge(vmax_km_data[, c('name', 'Km')],
-                      Km_table, all = TRUE)
+    Vmax_table <- merge(vmax_km_data[, c('name', 'Vmax')], Vmax_table, all = TRUE)
+    Km_table <- merge(vmax_km_data[, c('name', 'Km')], Km_table, all = TRUE)
     
     if (p.adjust_method != 'no') {
         Vmax_table$p.adjust <- p.adjust(Vmax_table$p.value, method = p.adjust_method)
@@ -652,22 +670,33 @@ compare_vmax_km <- function(velo_data, vmax_km_data,
 }
 
 
-######## NLME MODELS ########
+########################## NLME MODELS #########################################
 
-# Michaelis-Mentent equation.
-# The function necessary for self-starting nls models.
-# Vmax : numeric, Vmax value;
-# Km   : numeric, Km value;
-# substrate_conc : numeric, substrate concentration;
-# return : numeric, reaction velocity.
+#' Michaelis-Menten Equation
+#'
+#' Calculates the reaction velocity given Vmax, Km, and substrate concentration.
+#'
+#' @param Vmax Numeric, maximum reaction velocity.
+#' @param Km Numeric, Michaelis constant.
+#' @param substrate_conc Numeric, substrate concentration.
+#' @return Numeric, reaction velocity.
+
 mm <- function(Vmax, Km, substrate_conc) {
     Vmax * substrate_conc / (Km + substrate_conc)
 }
 
 
-# Returns initial guesses of MM equation parameters necessary for
-# self-starting nls models.
-# Supplementrary function.
+#' Initial Parameter Estimates for Self-Starting NLS Models
+#'
+#' This helper function computes initial estimates for the Michaelis-Menten parameters (Vmax and Km)
+#' which are required for self-starting nonlinear least squares (nls) models.
+#'
+#' @param mCall The matched call from nls().
+#' @param data Data provided to the nls() call.
+#' @param LHS The left-hand side variable name (velocity) in the nls formula.
+#' @param ... Additional arguments.
+#' @return Named numeric vector with initial guesses for Vmax and Km.
+
 mmInit <- function(mCall, data, LHS, ...) {
     if (class(data) == 'list') {
         velo <- data[[LHS]]
@@ -683,36 +712,11 @@ mmInit <- function(mCall, data, LHS, ...) {
 }
 
 
-# # Self-starting function for fitting Michaelis-Mentent equation.
-# mm <- selfStart(mm, initial =  mmInit, parameters = c('Vmax', 'Km'))
-# 
-# 
-# # Returns starting Vmax and Km values necessary for nlme models.
-# # data : data.frame containing the following columns: 'name', 'b', and 'substrate_conc';
-# # return : numeric, vector containing initial guesses for Vmax and Km.
-# get_multi_start_values <- function(data) {
-#     models <- nlsList(b ~ mm(Vmax, Km, substrate_conc) | name, data = data)
-#     c(as.matrix(coef(models)))
-# }
-# 
-# 
-# get_nlme_model <- function(data, starting_values, ref_sample) {
-#     data$name <- factor(data$name)
-#     data$name <- relevel(data$name, ref_sample)
-#     data$rep <- factor(data$rep)
-#     nlme(b ~ mm(Vmax, Km, substrate_conc),
-#          data = data,
-#          fixed = Vmax + Km ~ name,
-#          random = Vmax + Km ~ 1| rep,
-#          na.action = na.pass,
-#          start = starting_values,
-#          method = 'REML')
-# }
+####################### DATA VISUALISATION #####################################
 
-
-######## DATA VISUALISATION ########
-
-# Plot attributes used in the application.
+#' Custom Plot Theme for the Application
+#'
+#' Defines a ggplot2 theme that is consistently used across the application for better aesthetics.
 
 plot_theme <-
     theme_bw() +
@@ -728,14 +732,18 @@ plot_theme <-
           axis.line = element_line(colour = "black"))
 
 
-# Makes a plot showing signals obtained from calibrating titration during the experiment.
-# assay : list returned by the assay() function;
-# mode : character, takes two values: 'individual' (shows data from each well) or 'averaged'
-#        (shows averaged data for each concentration level of the calibrating reagent).
-# return : ggplot object.
+#' Plot Standard Data from Calibration Titration
+#'
+#' Generates a ggplot showing the RFU signals from the standard titration data.
+#' Depending on the mode, the plot can display individual well data or averaged data.
+#'
+#' @param assay List returned by assay().
+#' @param mode Character string: either "individual" (plot each well's data) or "averaged"
+#'        (plot geometric means for each concentration level).
+#' @return A ggplot object.
 
 show_standard_data <- function(assay, mode = 'individual') {
-    conc_levels <- as.character(sort(unique(assay$standard_data_indiv$conc), decreasing = T))
+    conc_levels <- as.character(sort(unique(assay$standard_data_indiv$conc), decreasing = TRUE))
     plot <- switch (mode,
                     'individual' = ggplot(assay$standard_data_indiv,
                                           aes(Time, RFU, group = well)) +
@@ -754,17 +762,19 @@ show_standard_data <- function(assay, mode = 'individual') {
 }
 
 
-# Makes a plot showing how regression parameters of calibrating curve changed during the experiment.
-# assay : list returned by the assay() function;
-# parmeter : character, a regression parameter to plot; takes three possible values:
-#            'slope', 'intercept', or 'Rsq';
-# y_limits : numeric vector of length 2 describing limits of the Y axis. If NA values provided,
-#            these values will be picked up automatically.
-# return : ggplot object.
+#' Plot Calibration Parameters over Time
+#'
+#' Displays how one of the regression parameters (slope, intercept, or R-squared) changes
+#' during the assay.
+#'
+#' @param assay List returned by assay().
+#' @param parameter Character string: "slope", "intercept", or "Rsq".
+#' @param y_limits Numeric vector of length 2 for Y-axis limits. NA values will be auto-determined.
+#' @return A ggplot object.
 
 show_calibration_pars <- function(assay, parameter, y_limits = c(NA, NA)) {
     calib <- assay$calibration_pars
-    calib$time <- as.numeric(row.names(calib))
+    calib$time <- as.numeric(rownames(calib))
     plot <- switch(parameter,
                    'slope' = ggplot(calib, aes(time, slope)) +
                        labs(x = 'Time, min', y = 'Slope'),
@@ -780,23 +790,26 @@ show_calibration_pars <- function(assay, parameter, y_limits = c(NA, NA)) {
 }
 
 
-# Makes a plot showing progress curves.
-# assay : list returned by the assay() function;
-# mode : character, the mode how progress curves to be shown; takes one of three values:
-#        'all' - all curves in one plot;
-#        'by sample' - all curves for each sample on one plot;
-#        'by sample & conc' - progress curves from each sample from each substrate concentration 
-#                on a separate plot;
-# show_velocities : logical, if initial reaction velocities to be shown
-#                   by dashed lines on the plots;
-# curve_models : data.frame returned by the model_progress_curves() function.
-# return : list of ggplot objects.
+#' Plot Progress Curves for the Assay
+#'
+#' Constructs one or several ggplot objects that display the progress curves (product concentration
+#' vs. time). The plotting mode can be:
+#'   - "all": All progress curves in a single plot.
+#'   - "by sample": Separate plot for each sample.
+#'   - "by sample & conc": Separate plot for each combination of sample and substrate concentration.
+#' Optionally, initial reaction velocities can be overlaid as dashed lines.
+#'
+#' @param assay List returned by assay().
+#' @param mode Character indicating the layout mode ("all", "by sample", "by sample & conc").
+#' @param show_velocities Logical indicating whether to overlay initial reaction velocities.
+#' @param curve_models Data.frame of regression parameters from model_progress_curves().
+#' @return A list of ggplot objects.
 
 show_progress_curves <- function(assay,
                                  mode = 'all',
                                  show_velocities = FALSE,
                                  curve_models = NULL) {
-    substr_conc_levels <- sort(unique(assay$progress_curves$substrate_conc), decreasing = T)
+    substr_conc_levels <- sort(unique(assay$progress_curves$substrate_conc), decreasing = TRUE)
     samples <- levels(assay$progress_curves$name)
     plots <- list()
     if (mode == 'all') {
@@ -811,9 +824,9 @@ show_progress_curves <- function(assay,
         }
     } else if (mode == 'by sample & conc') {
         vars <- expand.grid(samples, substr_conc_levels)
-        for (i in 1:dim(vars)[1]) {
-            df <- subset(assay$progress_curves, name == vars[i,1] & substrate_conc == vars[i,2])
-            if (dim(df)[1] > 0) {
+        for (i in 1:nrow(vars)) {
+            df <- subset(assay$progress_curves, name == vars[i, 1] & substrate_conc == vars[i, 2])
+            if (nrow(df) > 0) {
                 plot <- ggplot(df, aes(Time, conc, group = well)) +
                     facet_wrap(~ paste(name, substrate_conc, sep = ': '))
                 plots[[paste0('plot_', i)]] <- plot
@@ -835,7 +848,7 @@ show_progress_curves <- function(assay,
             plot_theme +
             labs(x = 'Time, min', y = expression('Product concentration, '*mu*'M'))
     }
-    # addition velocities:
+    # Optionally add velocity lines as dashed lines.
     if (show_velocities & ! is.null(curve_models)) {
         curve_models$substrate_conc <- factor(curve_models$substrate_conc, levels = substr_conc_levels)
         if (mode == 'all') {
@@ -857,7 +870,7 @@ show_progress_curves <- function(assay,
         } else if (mode == 'by sample & conc') {
             for (nm in names(plots)) {
                 i <- as.numeric(str_split(nm, '_')[[1]][2])
-                smpl_name = vars[i, 1]
+                smpl_name <- vars[i, 1]
                 conc <- vars[i, 2]
                 plots[[nm]] <- plots[[nm]] +
                     geom_abline(data = subset(curve_models, name == smpl_name & substrate_conc == conc),
@@ -871,11 +884,16 @@ show_progress_curves <- function(assay,
 }
 
 
-# Calculates Michaelis-Mentent curves based on nls model provided.
-# model : nls model;
-# max_conc : numeric, maximal substrate concentration to put into a model.
-# return : data.frame containing two columns: 'substrate_conc' (substrate concentration)
-#          and 'velocity' (reaction velocity at current substrate concentration).
+#' Compute Predicted Michaelis-Menten Curve
+#'
+#' Given an nls model fitted to Michaelis-Menten kinetics, this function generates predicted
+#' reaction velocities over a sequence of substrate concentrations.
+#'
+#' @param model An nls model object.
+#' @param max_conc Numeric, maximum substrate concentration.
+#' @return Data.frame with columns:
+#'         - substrate_conc: Substrate concentration values.
+#'         - velocity: Predicted reaction velocity.
 
 get_mm_model <- function(model, max_conc) {
     df <- data.frame(substrate_conc = seq(0, max_conc, by = 0.5))
@@ -884,13 +902,17 @@ get_mm_model <- function(model, max_conc) {
 }
 
 
-# Makes a Michaelis-Mentent plot.
-# data : data.frame containing reaction velocity data (comes from the model_progress_curves() function);
-# model : nls model to be shown; if NULL, no model appears, only individual data points.
-# return : ggplot object.
+#' Plot Michaelis-Menten Curve with Data Points
+#'
+#' Displays a scatter plot of reaction velocity data along with a fitted Michaelis-Menten curve.
+#' If a model is provided, the predicted curve and the half‑Vmax point are overlaid.
+#'
+#' @param data Data.frame containing reaction velocity data (e.g., from model_progress_curves()).
+#' @param model An optional nls model for the Michaelis-Menten curve.
+#' @return A ggplot object.
 
 show_mm_plot <- function(data, model = NULL) {
-    if (dim(data)[1] == 0) return(NULL)
+    if (nrow(data) == 0) return(NULL)
     fig <- ggplot(data, aes(substrate_conc, b)) +
         geom_point(size = 2) +
         scale_y_continuous(limits = c(0, NA)) +
@@ -898,7 +920,7 @@ show_mm_plot <- function(data, model = NULL) {
         labs(x = expression('Substrate concentration, '*mu*'M'),
              y = expression('Velocity, '*mu*'M/min'))
     if (is.null(model)) return(fig)
-    max_conc = max(data$substrate_conc)
+    max_conc <- max(data$substrate_conc)
     df <- get_mm_model(model, max_conc)
     X <- coef(model)
     horiz_line <- data.frame(x = c(-Inf, X[2]),
@@ -912,11 +934,15 @@ show_mm_plot <- function(data, model = NULL) {
 }
 
 
-# Shows several Michaelis-Mentent curves in one plot.
-# velocity_data : data.frame containing reaction velocity data (comes from the model_progress_curves() function);
-# model : list of nls model to be show;
-# samples_include : character vector, a list of samples to show; if NULL, all curves will be shown.
-# return : ggplot object.
+#' Layout Multiple Michaelis-Menten Plots
+#'
+#' Creates a combined layout of Michaelis-Menten plots for several samples. Data points and
+#' predicted curves (if available) are plotted for each sample.
+#'
+#' @param velocity_data Data.frame containing reaction velocity data.
+#' @param nls_models A list of nls models for the Michaelis-Menten fits, indexed by sample name.
+#' @param samples_include Optional character vector specifying which samples to include.
+#' @return A ggplot object with the combined layout.
 
 show_mm_plots_layout <- function(velocity_data,
                                  nls_models,
@@ -942,20 +968,24 @@ show_mm_plots_layout <- function(velocity_data,
         plot_theme +
         labs(x = expression('Substrate concentration, '*mu*'M'),
              y = expression('Velocity, '*mu*'M/min'))
-    if (dim(predicted_by_models)[1] > 0) {
+    if (nrow(predicted_by_models) > 0) {
         fig <- fig + geom_line(data = predicted_by_models,
                                aes(x = substrate_conc,
                                    y = velocity,
                                    color = name))
     }
-    fig <- fig + scale_color_discrete(name = 'Sample')
-    fig
+    fig + scale_color_discrete(name = 'Sample')
 }
 
 
-# Makes a scatter plot with Km and Vmax values of samples provided.
-# data : data.frame containing Km and Vmax data to be shown.
-# return : ggplot object.
+#' Plot Km vs. Vmax with Optional Error Bars
+#'
+#' Creates a scatter plot of Km and Vmax values for different samples. Optionally, error bars
+#' can be displayed if lower/upper bounds are provided.
+#'
+#' @param data Data.frame containing columns Km, Vmax, and optionally error bounds.
+#' @param show_error_bars Logical indicating whether to show error bars.
+#' @return A ggplot object.
 
 show_km_vmax <- function(data, show_error_bars = TRUE) {
     plot <- ggplot(data, aes(Km, Vmax, color = name)) +
@@ -975,4 +1005,3 @@ show_km_vmax <- function(data, show_error_bars = TRUE) {
     }
     plot
 }
-
