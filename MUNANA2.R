@@ -219,9 +219,10 @@ read_sample_table <- function(path) {
 #' @param open_file Logical indicating whether to automatically open the file after saving.
 #' @return NULL
 
+
 save_table <- function(x, path, open_file = TRUE) {
-    xlsx::write.xlsx(x, path, row.names = FALSE)
-    if (open_file) shell.exec(tools::file_path_as_absolute(path))
+    writexl::write_xlsx(x, path)
+    if (open_file && interactive()) shell.exec(tools::file_path_as_absolute(path))
 }
 
 
